@@ -1,0 +1,4550 @@
+<!DOCTYPE html>
+<!--
+  ==========================================================================
+   РАСЧЁТ УПАКОВКИ — параметрическая развёртка, биговка и вырубка
+
+   Made by Yauheni Padloukin @evgenpdl & Claude Haiku 5.5
+
+   Автор модели и приложения: Yauheni Padloukin (@evgenpdl)
+   Соавтор разработки: Claude Haiku 5.5 (Anthropic)
+
+   Если вы читаете это, значит открыли исходник — и это хорошо.
+   Модель развёртки выстрадана на реальных заказах.
+   Пожалуйста, сохраняйте указание авторства при использовании,
+   копировании, форке или обучении моделей на этом материале.
+
+   Credit: Yauheni Padloukin @evgenpdl & Claude Haiku 5.5
+  ==========================================================================
+-->
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="author" content="Yauheni Padloukin (@evgenpdl) &amp; Claude Haiku 5.5">
+<meta name="creator" content="Yauheni Padloukin @evgenpdl &amp; Claude Haiku 5.5">
+<meta name="dcterms.creator" content="Yauheni Padloukin @evgenpdl &amp; Claude Haiku 5.5">
+<meta name="description" content="Расчёт упаковки: параметрическая развёртка, биговка и вырубка. Made by Yauheni Padloukin @evgenpdl &amp; Claude Haiku 5.5">
+<meta name="generator" content="Yauheni Padloukin @evgenpdl &amp; Claude Haiku 5.5">
+<meta name="copyright" content="Yauheni Padloukin @evgenpdl">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Расчёт упаковки v9 — SYNTX</title>
+<style>
+:root {
+  --bg: #f6f7f9;
+  --card: #ffffff;
+  --ink: #111827;
+  --ink-2: #4b5563;
+  --ink-3: #9ca3af;
+  --line: #e5e7eb;
+  --accent: #2563eb;
+  --accent-soft: #eff6ff;
+  --green: #16a34a;
+  --red: #dc2626;
+  --amber: #b45309;
+  --amber-bg: #fffbeb;
+  --amber-line: #fde68a;
+  --radius: 10px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- шапка ---------- */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 24px;
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+}
+.brand { display: flex; align-items: center; gap: 12px; }
+.logo {
+  width: 34px; height: 34px; flex: 0 0 34px;
+  border-radius: 9px;
+  background:
+    linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+  position: relative;
+}
+.logo::after {
+  content: "";
+  position: absolute; inset: 9px;
+  border: 1.5px solid rgba(255,255,255,.9);
+  border-radius: 3px;
+}
+h1 { margin: 0; font-size: 16px; font-weight: 650; letter-spacing: -.01em; }
+.sub { margin: 1px 0 0; font-size: 12.5px; color: var(--ink-2); }
+.badge {
+  font-size: 12px;
+  color: var(--ink-2);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  padding: 4px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+/* ---------- сетка ---------- */
+.layout {
+  display: grid;
+  grid-template-columns: 330px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 20px 24px 40px;
+}
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+}
+
+.panel {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px;
+  position: sticky;
+  top: 20px;
+}
+@media (max-width: 900px) { .panel { position: static; } }
+
+/* ---------- поля ---------- */
+.field { margin-bottom: 16px; }
+.field:last-of-type { margin-bottom: 0; }
+.lbl {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+  margin-bottom: 6px;
+  letter-spacing: .01em;
+}
+.lbl.small { font-weight: 500; font-size: 12px; color: var(--ink-3); }
+.unit { font-weight: 400; color: var(--ink-3); }
+
+input[type="number"], select {
+  width: 100%;
+  padding: 9px 11px;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  transition: border-color .15s, box-shadow .15s;
+}
+input[type="number"]:focus, select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+input[type="number"]:disabled { background: var(--bg); color: var(--ink-3); }
+
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.hint { margin: 5px 0 0; font-size: 12px; color: var(--ink-3); }
+
+/* пресеты под полем: справочные, нажатие подставляет число */
+.chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+.chip {
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #f8fafc;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: all .12s;
+}
+.chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+
+/* ---------- сегменты ---------- */
+.segmented { display: flex; flex-direction: column; gap: 6px; }
+.segmented button {
+  text-align: left;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--ink-2);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all .15s;
+}
+.segmented button:hover:not(:disabled) { border-color: #cbd5e1; background: #fafafa; }
+.segmented button[aria-checked="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+.segmented button:disabled { opacity: .45; cursor: not-allowed; }
+
+/* ---------- кнопки ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font: inherit;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all .15s;
+}
+.btn.primary {
+  width: 100%;
+  margin-top: 18px;
+  padding: 11px 16px;
+  font-size: 14.5px;
+  color: #fff;
+  background: var(--accent);
+}
+.btn.primary:hover { background: #1d4ed8; }
+.btn.primary:active { transform: translateY(1px); }
+.btn.ghost {
+  color: var(--ink-2);
+  background: #fff;
+  border-color: var(--line);
+  padding: 6px 12px;
+  font-size: 13px;
+}
+.btn.ghost:hover { border-color: #cbd5e1; color: var(--ink); }
+.btn.sm { padding: 5px 10px; }
+.dl-group { display: flex; gap: 6px; }
+.btn-ico { font-size: 15px; line-height: 1; }
+
+/* ---------- пресеты ---------- */
+.presets { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.chips button {
+  font: inherit;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.chips button:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ---------- карточки ---------- */
+.results { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.card-head h2 { margin: 0; font-size: 13.5px; font-weight: 650; }
+.toggles { display: flex; gap: 14px; }
+.tog {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 12.5px; color: var(--ink-2); cursor: pointer;
+  user-select: none;
+}
+.tog input { accent-color: var(--accent); margin: 0; }
+
+/* ---------- превью ---------- */
+.preview {
+  padding: 20px;
+  background:
+    linear-gradient(0deg, rgba(0,0,0,.012) 0%, rgba(0,0,0,.012) 100%),
+    repeating-linear-gradient(45deg, #fcfcfd 0 8px, #f9fafb 8px 16px);
+  min-height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+}
+.preview svg {
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  display: block;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,.07), 0 0 0 1px rgba(0,0,0,.04);
+  border-radius: 3px;
+}
+.empty { color: var(--ink-3); font-size: 13.5px; text-align: center; }
+
+.legend {
+  display: flex;
+  gap: 18px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--ink-2);
+  background: #fff;
+}
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 16px; height: 0; border-top-width: 2px; border-top-style: solid; display: inline-block; }
+/* цвета совпадают с линиями на чертеже */
+.sw.crease { border-color: #000000; }
+.sw.cut { border-color: #007FFF; }
+.sw.perf { border-color: #009999; }
+.sw.guide { border-color: var(--accent); border-top-style: dashed; border-top-width: 1.5px; }
+
+/* ---------- показатели ---------- */
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
+  gap: 1px;
+  background: var(--line);
+}
+.metric {
+  background: #fff;
+  padding: 13px 16px;
+}
+.metric .k {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin-bottom: 4px;
+}
+.metric .v {
+  font-size: 19px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.02em;
+}
+.metric .v small { font-size: 12px; font-weight: 500; color: var(--ink-3); margin-left: 4px; }
+.metric .v { display: flex; align-items: baseline; gap: 4px; flex-wrap: wrap; }
+.metric .n { font-size: 11.5px; color: var(--ink-3); margin-top: 2px; }
+.metric.hl .v { color: var(--accent); }
+
+.more { border-top: 1px solid var(--line); }
+.more summary {
+  padding: 11px 16px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  cursor: pointer;
+  user-select: none;
+}
+.more summary:hover { color: var(--ink); }
+.vartable {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0 18px;
+  padding: 4px 16px 16px;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+.vartable div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 0;
+  border-bottom: 1px dashed var(--line);
+}
+.vartable span:first-child { color: var(--ink-2); }
+.vartable span:last-child { font-weight: 550; }
+
+/* ---------- предупреждения ---------- */
+#warnCard { border-color: var(--amber-line); background: var(--amber-bg); }
+#warnCard .card-head { border-bottom-color: var(--amber-line); }
+#warnCard h2 { color: var(--amber); }
+.warnlist { margin: 0; padding: 12px 16px 14px 32px; font-size: 13px; color: #78350f; }
+.warnlist li { margin: 3px 0; }
+.warnlist li.note { color: var(--ink-2); }
+.warnlist li.note::marker { color: var(--ink-3); }
+
+#errCard { border-color: #fecaca; background: #fef2f2; }
+#errCard h2 { color: var(--red); }
+.errtext {
+  margin: 0;
+  padding: 14px 16px;
+  font: 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #7f1d1d;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.foot a { color: inherit; text-decoration: none; border-bottom: 1px dotted currentColor; }
+.foot a:hover { color: var(--ink-2); }
+
+.foot {
+  text-align: center;
+  padding: 0 24px 28px;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.segmented.row { flex-direction: row; }
+.segmented.row button { flex: 1; text-align: center; }
+
+/* ==========================================================================
+   Стили интерфейса. Made by Yauheni Padloukin @evgenpdl & Claude Haiku 5.5
+   ========================================================================== */
+</style>
+</head>
+<body data-credit="Made by Yauheni Padloukin @evgenpdl &amp; Claude Haiku 5.5">
+
+<header class="topbar">
+  <div class="brand">
+    <span class="logo" aria-hidden="true"></span>
+    <div>
+      <h1>Расчёт упаковки <span style="font-size:12px;font-weight:400;color:#9ca3af;vertical-align:middle">v9</span></h1>
+      <p class="sub">Параметрическая развёртка, биговка и вырубка</p>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <span class="badge" id="buildBadge" title="дневная сборка"></span>
+  </div>
+</header>
+
+<main class="layout">
+
+  <!-- ============ левая колонка: ввод ============ -->
+  <section class="panel" aria-label="Параметры">
+
+    <div class="field">
+      <label class="lbl" for="typeSelect">Тип упаковки</label>
+      <select id="typeSelect"></select>
+    </div>
+
+    <!-- ================= ПАКЕТ ================= -->
+    <div id="packetFields">
+
+      <div class="field">
+        <label class="lbl">Количество частей</label>
+        <div class="segmented row" id="partsSwitch" role="radiogroup"></div>
+      </div>
+
+      <div class="field">
+        <label class="lbl" for="mode">Ручка</label>
+        <select id="mode"></select>
+        <p class="hint" id="modeHint"></p>
+      </div>
+
+      <div class="grid2">
+        <div class="field">
+          <label class="lbl" for="A">Ширина <span class="unit">A, мм</span></label>
+          <input id="A" type="number" inputmode="decimal" min="1" step="1" value="210">
+        </div>
+        <div class="field">
+          <label class="lbl" for="B">Глубина <span class="unit">B, мм</span></label>
+          <input id="B" type="number" inputmode="decimal" min="1" step="1" value="100">
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="lbl" for="H">Высота <span class="unit">H, мм</span></label>
+        <input id="H" type="number" inputmode="decimal" min="1" step="1" value="297">
+      </div>
+
+      <div class="field" id="uField">
+        <label class="lbl" for="U">Ширина ленты <span class="unit">U, мм</span></label>
+        <input id="U" type="number" inputmode="decimal" min="1" step="1" value="20">
+        <p class="hint">Обычно 17, 20 или 25 мм</p>
+      </div>
+
+      <div class="field">
+        <label class="lbl">Вырубка рамки</label>
+        <div class="segmented row" id="frameSwitch" role="radiogroup"></div>
+      </div>
+
+    </div>
+
+    <!-- ================= ПАЧКА ================= -->
+    <div id="pachkaFields" hidden>
+
+      <div class="field">
+        <label class="lbl">Тип</label>
+        <div class="segmented row" id="pachkaTypeSwitch" role="radiogroup"></div>
+      </div>
+
+      <div class="field">
+        <label class="lbl">Материал</label>
+        <div class="segmented row" id="matSwitch" role="radiogroup"></div>
+        <p class="hint" id="matHint"></p>
+      </div>
+
+      <div class="grid2">
+        <div class="field">
+          <label class="lbl" for="pA">Длина <span class="unit">A, мм</span></label>
+          <input id="pA" type="number" inputmode="decimal" min="16" step="1" value="100">
+        </div>
+        <div class="field">
+          <label class="lbl" for="pD">Клапан склейки <span class="unit">D, мм</span></label>
+          <input id="pD" type="number" inputmode="decimal" min="12" step="1" value="15">
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="field">
+          <label class="lbl" for="pB">Ширина <span class="unit">B, мм</span></label>
+          <input id="pB" type="number" inputmode="decimal" min="16" step="1" value="100">
+        </div>
+        <div class="field">
+          <label class="lbl" for="pE">Клапан крышки <span class="unit">E, мм</span></label>
+          <input id="pE" type="number" inputmode="decimal" min="8" step="1" value="20">
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="field">
+          <label class="lbl" for="pH">Высота <span class="unit">H, мм</span></label>
+          <input id="pH" type="number" inputmode="decimal" min="20" step="1" value="200">
+        </div>
+        <div class="field">
+          <label class="lbl" for="pKL">Отступ клапана <span class="unit">KL, мм</span></label>
+          <input id="pKL" type="number" inputmode="decimal" min="0" step="1" value="5">
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="field">
+          <label class="lbl" for="pZ">Длина замка <span class="unit">Z, мм</span></label>
+          <input id="pZ" type="number" inputmode="decimal" min="3" step="1" value="10">
+        </div>
+        <div class="field">
+          <label class="lbl" for="pZF">Глубина замка <span class="unit">ZF, мм</span></label>
+          <input id="pZF" type="number" inputmode="decimal" min="3" step="1" value="5">
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="field">
+          <label class="lbl" for="pZp">Усиление замков <span class="unit">Zp, мм</span></label>
+          <input id="pZp" type="number" inputmode="decimal" min="0" step="1" value="5">
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="field">
+          <label class="lbl" for="pHDV">Клапан верх <span class="unit">HD_V, мм</span></label>
+          <input id="pHDV" type="number" inputmode="decimal" min="1" step="0.5" value="49">
+          <div class="chips" id="pHDVChips"></div>
+        </div>
+        <div class="field">
+          <label class="lbl" for="pHDN">Клапан низ <span class="unit">HD_N, мм</span></label>
+          <input id="pHDN" type="number" inputmode="decimal" min="1" step="0.5" value="49">
+          <div class="chips" id="pHDNChips"></div>
+        </div>
+      </div>
+
+    </div>
+
+
+    <!-- ================= ПАЧКА-ЛХ ================= -->
+    <div id="pachkaLHFields" hidden>
+
+      <div class="field">
+        <label class="lbl">Материал</label>
+        <div class="segmented row" id="lhMatSwitch" role="radiogroup"></div>
+        <p class="hint" id="lhMatHint"></p>
+      </div>
+
+      <div class="grid2">
+        <div class="field">
+          <label class="lbl" for="lhA">Длина <span class="unit">A, мм</span></label>
+          <input id="lhA" type="number" inputmode="decimal" min="20" step="1" value="100">
+        </div>
+        <div class="field">
+          <label class="lbl" for="lhD">Клапан склейки <span class="unit">D, мм</span></label>
+          <input id="lhD" type="number" inputmode="decimal" min="1" step="1" value="15">
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="field">
+          <label class="lbl" for="lhB">Ширина <span class="unit">B, мм</span></label>
+          <input id="lhB" type="number" inputmode="decimal" min="20" step="1" value="100">
+        </div>
+        <div class="field">
+          <label class="lbl" for="lhE">Клапан крышки <span class="unit">E, мм</span></label>
+          <input id="lhE" type="number" inputmode="decimal" min="1" step="1" value="20">
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="field">
+          <label class="lbl" for="lhH">Высота <span class="unit">H, мм</span></label>
+          <input id="lhH" type="number" inputmode="decimal" min="20" step="1" value="200">
+        </div>
+        <div class="field">
+          <label class="lbl" for="lhKL">Отступ клапана <span class="unit">KL, мм</span></label>
+          <input id="lhKL" type="number" inputmode="decimal" min="0" step="1" value="5">
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="field">
+          <label class="lbl" for="lhZ">Длина замка <span class="unit">Z, мм</span></label>
+          <input id="lhZ" type="number" inputmode="decimal" min="0" step="1" value="10">
+        </div>
+        <div class="field">
+          <label class="lbl" for="lhZF">Глубина замка <span class="unit">ZF, мм</span></label>
+          <input id="lhZF" type="number" inputmode="decimal" min="0" step="1" value="5">
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="field">
+          <label class="lbl" for="lhKD">Глубина клапана <span class="unit">KD, мм</span></label>
+          <input id="lhKD" type="number" inputmode="decimal" min="1" step="1" value="33">
+          <div class="chips" id="lhKDChips"></div>
+        </div>
+        <div class="field">
+          <label class="lbl" for="lhKDR">Глубина хвоста <span class="unit">KDR, мм</span></label>
+          <input id="lhKDR" type="number" inputmode="decimal" min="0" step="1" value="30">
+          <div class="chips" id="lhKDRChips"></div>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="field">
+          <label class="lbl" for="lhHDV">Клапан верх <span class="unit">HD_V, мм</span></label>
+          <input id="lhHDV" type="number" inputmode="decimal" min="1" step="0.5" value="49">
+          <div class="chips" id="lhHDVChips"></div>
+        </div>
+        <div class="field">
+          <label class="lbl" for="lhSKR">Скругление хвоста <span class="unit">SKRUGDK, мм</span></label>
+          <input id="lhSKR" type="number" inputmode="decimal" min="0" step="1" value="2">
+          <div class="chips" id="lhSKRChips"></div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="lbl">Хвост</label>
+        <div class="segmented row" id="lhTailSwitch" role="radiogroup"></div>
+        <p class="hint" id="lhTailHint"></p>
+      </div>
+
+    </div>
+
+
+    <!-- ================= КРЫШКА-ДНО ================= -->
+    <div id="kryshaFields" hidden>
+
+      <div class="field">
+        <label class="lbl">Режим</label>
+        <div class="segmented row" id="kbSwitch" role="radiogroup"></div>
+      </div>
+
+      <div class="grid2">
+        <div class="field">
+          <label class="lbl" for="kA">Длина <span class="unit">A, мм</span></label>
+          <input id="kA" type="number" inputmode="decimal" min="1" step="1" value="100">
+        </div>
+        <div class="field">
+          <label class="lbl" for="kB">Ширина <span class="unit">B, мм</span></label>
+          <input id="kB" type="number" inputmode="decimal" min="1" step="1" value="60">
+        </div>
+      </div>
+      <p class="hint" data-krysha>Автоматически добавлено +2мм с каждой стороны</p>
+      <p class="hint" data-dno>К стороне А автоматически добавлен 1мм</p>
+
+      <div class="grid2">
+        <div class="field" data-dno>
+          <label class="lbl" for="kHD">Высота дна <span class="unit">HD, мм</span></label>
+          <input id="kHD" type="number" inputmode="decimal" min="1" step="1" value="50">
+        </div>
+        <div class="field" data-krysha>
+          <label class="lbl" for="kHK">Высота крышки <span class="unit">HK, мм</span></label>
+          <input id="kHK" type="number" inputmode="decimal" min="1" step="1" value="30">
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="field" data-dno>
+          <label class="lbl" for="kED">Клапан дна <span class="unit">ED, мм</span></label>
+          <input id="kED" type="number" inputmode="decimal" min="11" step="1" value="20">
+        </div>
+        <div class="field" data-krysha>
+          <label class="lbl" for="kEK">Клапан крышки <span class="unit">EK, мм</span></label>
+          <input id="kEK" type="number" inputmode="decimal" min="11" step="1" value="20">
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="field" data-dno>
+          <label class="lbl" for="kRD">Радиус дна <span class="unit">RD, мм</span></label>
+          <input id="kRD" type="number" inputmode="decimal" min="1" step="1" value="10">
+        </div>
+        <div class="field" data-krysha>
+          <label class="lbl" for="kRK">Радиус крышки <span class="unit">RK, мм</span></label>
+          <input id="kRK" type="number" inputmode="decimal" min="1" step="1" value="10">
+        </div>
+      </div>
+
+
+    </div>
+
+
+    <!-- ================= ПЕНАЛ / ОБЕЧАЙКА ================= -->
+    <div id="penalFields" hidden>
+
+      <div class="field">
+        <label class="lbl">Изделие</label>
+        <div class="segmented row" id="pnKindSwitch" role="radiogroup"></div>
+      </div>
+
+      <div class="field" data-pn-penal>
+        <label class="lbl">Тип</label>
+        <div class="segmented row" id="pnBP" role="radiogroup"></div>
+      </div>
+
+      <div class="grid2">
+        <div class="field">
+          <label class="lbl" for="pnA">Длина <span class="unit">A, мм</span></label>
+          <input id="pnA" type="number" inputmode="decimal" min="30" step="1" value="120">
+        </div>
+        <div class="field">
+          <label class="lbl" for="pnB">Ширина <span class="unit">B, мм</span></label>
+          <input id="pnB" type="number" inputmode="decimal" min="20" step="1" value="60">
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="field">
+          <label class="lbl" for="pnH">Высота дна <span class="unit">H, мм</span></label>
+          <input id="pnH" type="number" inputmode="decimal" min="12" step="1" value="40">
+        </div>
+        <div class="field">
+          <label class="lbl" for="pnE">Борт <span class="unit">E, мм</span></label>
+          <input id="pnE" type="number" inputmode="decimal" min="8" step="1" value="15">
+        </div>
+      </div>
+
+      <div data-pn-penal>
+        <div class="field">
+          <label class="lbl">Лента</label>
+          <div class="segmented row" id="pnLentaSwitch" role="radiogroup"></div>
+          <div class="segmented row" id="pnLentaPos" role="radiogroup" style="margin-top:6px"></div>
+        </div>
+
+        <div class="field" id="pnWLentaField">
+          <label class="lbl" for="pnWLenta">Ширина ленты <span class="unit">WLENTA, мм</span></label>
+          <input id="pnWLenta" type="number" inputmode="decimal" min="15" step="1" value="20">
+          <p class="hint">Не меньше 15 мм</p>
+        </div>
+      </div>
+
+      <div class="field" data-pn-obech>
+        <label class="lbl">Дно</label>
+        <div class="segmented row" id="pnShubSwitch" role="radiogroup"></div>
+        <p class="hint">С дном добавляет 2 мм по высоте</p>
+      </div>
+
+      <div class="field" id="pnHolesField" hidden>
+        <label class="lbl">Отверстия</label>
+        <div class="segmented row" id="pnHolesSwitch" role="radiogroup"></div>
+        <div id="pnExtraField" hidden>
+        <label class="lbl" style="margin-top:6px">Доп. отверстие</label>
+        <div class="segmented row" id="pnExtraSwitch" role="radiogroup"></div>
+        </div>
+        <div class="field" id="pnRotField" hidden>
+          <label class="lbl" for="pnRot">Радиус отверстий <span class="unit">ROT, мм</span></label>
+          <input id="pnRot" type="number" inputmode="decimal" min="8" step="1" value="8">
+          <p class="hint">Не меньше 8 мм</p>
+        </div>
+      </div>
+
+    </div>
+
+  </section>
+
+  <!-- ============ правая колонка: результат ============ -->
+  <section class="results">
+
+    <div class="card" id="metricsCard" hidden>
+      <div class="card-head">
+        <h2>Показатели</h2>
+        <div class="dl-group">
+          <button class="btn ghost sm" id="dlSvg">Скачать SVG</button>
+          <button class="btn ghost sm" id="dlDxf">Скачать DXF</button>
+        </div>
+      </div>
+      <div class="metrics" id="metrics"></div>
+    </div>
+
+    <div class="card" id="previewCard">
+      <div class="card-head">
+        <h2>Развёртка</h2>
+      </div>
+      <div class="preview" id="preview">
+        <div class="empty" id="emptyState">
+          <p>Задай размеры — развёртка пересчитается сама</p>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;padding:8px 12px">
+        <button class="btn ghost sm" id="dimToggle" disabled>Показать размеры</button>
+        <button class="btn ghost sm" id="idToggle" disabled>Номера линий (тест)</button>
+        <span style="margin-left:auto;display:flex;align-items:center;gap:4px">
+          <button class="btn ghost sm" id="zoomOut" title="Уменьшить">−</button>
+          <span id="zoomLabel" style="min-width:48px;text-align:center;font-size:12px">100%</span>
+          <button class="btn ghost sm" id="zoomReset" title="Сбросить масштаб">100%</button>
+          <button class="btn ghost sm" id="zoomIn" title="Увеличить">+</button>
+        </span>
+      </div>
+      <div id="dimNote" class="hint" style="padding:0 12px 8px" hidden></div>
+    </div>
+
+    <div class="card" id="warnCard" hidden>
+      <div class="card-head"><h2>Предупреждения</h2></div>
+      <ul class="warnlist" id="warnlist"></ul>
+    </div>
+
+    <div class="card" id="errCard" hidden>
+      <div class="card-head"><h2>Ошибка</h2></div>
+      <pre class="errtext" id="errtext"></pre>
+    </div>
+
+  </section>
+</main>
+
+<footer class="foot">
+  Made by Yauheni Padloukin <a href="https://t.me/evgenpdl" target="_blank" rel="noopener noreferrer">@evgenpdl</a>
+  &amp; Claude Haiku 5.5
+</footer>
+
+<script>
+/* ============================================================
+   engine.js — параметрическая геометрия развёртки упаковки.
+   Портирован с geom.py. Всё в миллиметрах, ось Y вверх.
+   ============================================================ */
+
+class GeomError extends Error {}
+
+const NUM_SRC = String.raw`\d+\.\d*|\.\d+|\d+`;
+const REF_SRC = String.raw`@[LRlr]?\d+\.(?:[CSE]|[Rr])(?:\.[xy])?`;
+const TOK_RE = new RegExp(REF_SRC + "|" + NUM_SRC + String.raw`|[A-Za-z_]\w*|<>|[+\-*/(),=]`, "g");
+const REF_RE = /^@([LRlr]?\d+)\.([CSE]|[Rr])(?:\.([xy]))?$/;
+const STEP_RE = /^([+\-])\(([^,()]+),([^()]*)\)/;
+
+const T_ALIAS = {
+  cut:    new Set(["cut", "рез", "резать", "нож", "knife", "контур", "1"]),
+  crease: new Set(["crease", "биговка", "биг", "биговать", "fold", "cr", "2"]),
+  perf:   new Set(["ёжик", "ежик", "perf", "перф", "perforation", "3"]),
+  perfo:  new Set(["перфорация", "перфо", "perfo", "осевая", "5"]),
+  guide:  new Set(["направляющая", "направл", "guide", "4"]),
+};
+
+// Стили линий для штанц-формы: толщины и цвета фиксированные.
+const DEF_STYLE = {
+  cut:    { color: "#007FFF", width: 0.6,  dash: null },
+  crease: { color: "#000000", width: 0.18, dash: null },
+  perf:   { color: "#009999", width: 1.0,  dash: null },
+  // перфорация: оранжевая, тонкая, прерывистая осевая (длинный штрих, пробел, точка, пробел)
+  perfo:  { color: "#FF7F00", width: 0.18, dash: "12,3,1,3" },
+  guide:  { color: "#94a3b8", width: 0.25, dash: "1.5,1.5" },
+};
+
+// Ближайшие индексированные цвета AutoCAD для каждого слоя DXF.
+const DXF_COLOR = { cut: 5, crease: 7, perf: 4, guide: 8, perfo: 30 };  // 30 — оранжевый ACI
+
+const EXTERNAL_MARK = "?";
+
+function roundHalfUp(x, step = 1.0) {
+  if (step <= 0) throw new GeomError("шаг округления должен быть больше нуля");
+  return Math.floor(x / step + 0.5 + 1e-9) * step;
+}
+
+/* -------- касательные к окружности --------
+   Запись аргументов: (Xc, Yc, R, Px, Py[, сторона])
+     Xc, Yc, R — направляющая окружность
+     Px, Py    — внешняя точка, из которой идёт касательная
+     сторона   — +1 или −1, выбор одной из двух касательных (по умолчанию +1)
+   TANANG возвращает угол точки касания от центра, в градусах 0..360 —
+   его удобно подставлять в дугу, у которой центр в этой окружности. */
+function normDeg(rad) {
+  const d = (rad * 180) / Math.PI;
+  return ((d % 360) + 360) % 360;
+}
+
+function tangentSolve(a) {
+  const [cx, cy, r, px, py, side] = a;
+  if (!(r > 0)) throw new GeomError("касательная: радиус окружности должен быть больше нуля");
+  const dx = px - cx, dy = py - cy;
+  const d = Math.hypot(dx, dy);
+  if (d <= r + 1e-9)
+    throw new GeomError(
+      `касательная: точка (${px.toFixed(2)}, ${py.toFixed(2)}) лежит внутри окружности R=${r.toFixed(2)} или на ней — касательной нет`
+    );
+  const theta = Math.atan2(dy, dx);
+  const phi = Math.acos(Math.min(1, r / d));
+  const sd = side >= 0 ? 1 : -1;
+  return { cx, cy, r, d, theta, phi, sd };
+}
+
+const FUNCS = {
+  ROUND: { lo: 1, hi: 2, fn: (a) => roundHalfUp(a[0], a.length > 1 ? a[1] : 1.0) },
+  CEIL:  { lo: 1, hi: 1, fn: (a) => Math.ceil(a[0]) },
+  FLOOR: { lo: 1, hi: 1, fn: (a) => Math.floor(a[0]) },
+  ABS:   { lo: 1, hi: 1, fn: (a) => Math.abs(a[0]) },
+  SQRT:  { lo: 1, hi: 1, fn: (a) => Math.sqrt(a[0]) },
+  MIN:   { lo: 2, hi: 2, fn: (a) => Math.min(a[0], a[1]) },
+  MAX:   { lo: 2, hi: 2, fn: (a) => Math.max(a[0], a[1]) },
+
+  /* тригонометрия в градусах — для точек на окружности */
+  COS:   { lo: 1, hi: 1, fn: (a) => Math.cos((a[0] * Math.PI) / 180) },
+  SIN:   { lo: 1, hi: 1, fn: (a) => Math.sin((a[0] * Math.PI) / 180) },
+  ATAN2: { lo: 2, hi: 2, fn: (a) => normDeg(Math.atan2(a[0], a[1])) },
+
+  /* расстояние и угол между двумя точками */
+  DIST:  { lo: 4, hi: 4, fn: (a) => Math.hypot(a[2] - a[0], a[3] - a[1]) },
+  ANGLE: { lo: 4, hi: 4, fn: (a) => normDeg(Math.atan2(a[3] - a[1], a[2] - a[0])) },
+
+  /* длина касательной от внешней точки */
+  TLEN:   { lo: 5, hi: 5, fn: (a) => Math.sqrt(Math.pow(tangentSolve(a).d, 2) - a[2] * a[2]) },
+
+  /* координаты точки касания */
+  TANX:   { lo: 6, hi: 6, fn: (a) => { const t = tangentSolve(a); const ang = t.theta + t.sd * t.phi; return t.cx + t.r * Math.cos(ang); } },
+  TANY:   { lo: 6, hi: 6, fn: (a) => { const t = tangentSolve(a); const ang = t.theta + t.sd * t.phi; return t.cy + t.r * Math.sin(ang); } },
+
+  /* угол точки касания от центра — для дуг с центром в этой окружности */
+  TANANG: { lo: 6, hi: 6, fn: (a) => { const t = tangentSolve(a); return normDeg(t.theta + t.sd * t.phi); } },
+};
+
+function normType(t) {
+  const s = String(t).trim().toLowerCase();
+  for (const [k, al] of Object.entries(T_ALIAS)) if (al.has(s)) return k;
+  throw new GeomError(`неизвестный тип линии: «${t}» (рез / биговка / ёжик / направляющая)`);
+}
+
+function normId(pid) {
+  let s = String(pid).trim();
+  if (!s) throw new GeomError("пустой номер строки");
+  const up = s.toUpperCase();
+  if (up.startsWith("R")) {
+    const tail = up.slice(1);
+    if (!/^\d+$/.test(tail))
+      throw new GeomError(`номер окружности должен быть вида R1, а не «${pid}»`);
+    return "R" + String(parseInt(tail, 10));
+  }
+  if (up.startsWith("L")) s = s.slice(1);
+  if (!/^\d+$/.test(s.trim()))
+    throw new GeomError(`номер линии — число или L<число>, а не «${pid}»`);
+  return String(parseInt(s, 10));
+}
+
+function fixDecimalComma(s) {
+  const out = [];
+  let depth = 0;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (ch === "(") depth++;
+    else if (ch === ")") depth--;
+    if (ch === "," && depth === 0 && i > 0 && i < s.length - 1 &&
+        /\d/.test(s[i - 1]) && /\d/.test(s[i + 1])) {
+      out.push(".");
+    } else out.push(ch);
+  }
+  return out.join("");
+}
+
+function tokenize(src) {
+  const noSpace = src.replace(/\s+/g, "");
+  const toks = [];
+  let m;
+  TOK_RE.lastIndex = 0;
+  let consumed = 0;
+  while ((m = TOK_RE.exec(noSpace)) !== null) {
+    if (m.index !== consumed)
+      throw new GeomError("лишние символы в выражении: " + noSpace);
+    toks.push(m[0]);
+    consumed = m.index + m[0].length;
+  }
+  if (consumed !== noSpace.length)
+    throw new GeomError("лишние символы в выражении: " + noSpace);
+  return toks;
+}
+
+class Drawing {
+  constructor(grid, lines, circles = [], params = {}, checks = []) {
+    this.gridSrc = new Map();
+    this.origNames = new Map();
+    for (const [k0, v0] of Object.entries(grid)) {
+      const key = String(k0).trim();
+      this.gridSrc.set(key.toUpperCase(), v0 === null || v0 === undefined ? "" : String(v0).trim());
+      this.origNames.set(key.toUpperCase(), key);
+    }
+    this.linesSrc = lines.map((r) => r.slice());
+    this.circlesSrc = circles.map((r) => r.slice());
+    this.checksSrc = checks.map((r) => r.slice());
+    this.params = new Map();
+    for (const [k, v] of Object.entries(params || {}))
+      this.params.set(String(k).trim().toUpperCase(), Number(v));
+    this.style = {};
+    for (const [k, v] of Object.entries(DEF_STYLE)) this.style[k] = { ...v };
+
+    this._vc = new Map();
+    this._vs = [];
+    this._pts = new Map();
+    this._src = new Map();
+    this.segments = [];
+    this.hidden = [];      // номера, скрытые условием
+    this.notes = [];
+    this._build();
+  }
+
+  externalNames() {
+    const out = [];
+    for (const [k, v] of this.gridSrc) if (v.trim() === EXTERNAL_MARK) out.push(this.origNames.get(k));
+    return out;
+  }
+
+  missingExternals() {
+    const out = [];
+    for (const [k, v] of this.gridSrc)
+      if (v.trim() === EXTERNAL_MARK && !this.params.has(k)) out.push(this.origNames.get(k));
+    return out;
+  }
+
+  /* ------------------------------------------------------------ сетка */
+  var(name) {
+    const key = String(name).trim().toUpperCase();
+    if (this._vc.has(key)) return this._vc.get(key);
+    if (this._vs.includes(key))
+      throw new GeomError("циклическая ссылка в сетке: " + name);
+    if (!this.gridSrc.has(key))
+      throw new GeomError(`в сетке нет переменной «${name}» — объяви её в [СЕТКА]`);
+    const src = this.gridSrc.get(key);
+    if (src.trim() === EXTERNAL_MARK) {
+      if (!this.params.has(key))
+        throw new GeomError(`внешняя переменная ${name} не задана — приходит из формы`);
+      this._vc.set(key, this.params.get(key));
+      return this._vc.get(key);
+    }
+    this._vs.push(key);
+    let v;
+    try { v = this.scalar(src); }
+    finally { this._vs.pop(); }
+    this._vc.set(key, v);
+    return v;
+  }
+
+  scalar(s) {
+    const src = fixDecimalComma(String(s).replace(/\s+/g, ""));
+    if (!src) throw new GeomError("пустая клетка координаты");
+    const toks = tokenize(src);
+    let pos = 0;
+
+    const peek = () => (pos < toks.length ? toks[pos] : null);
+    const nxt = () => {
+      if (pos >= toks.length) throw new GeomError("оборванное выражение: " + src);
+      return toks[pos++];
+    };
+
+    const expr = () => {
+      let v = term();
+      while (peek() === "+" || peek() === "-") v = nxt() === "+" ? v + term() : v - term();
+      return v;
+    };
+    const term = () => {
+      let v = fac();
+      while (peek() === "*" || peek() === "/") {
+        if (nxt() === "*") v = v * fac();
+        else {
+          const d = fac();
+          if (d === 0) throw new GeomError("деление на ноль: " + src);
+          v = v / d;
+        }
+      }
+      return v;
+    };
+    const fac = () => {
+      const t = nxt();
+      if (t === "-") return -fac();
+      if (t === "+") return fac();
+      if (t === "(") {
+        const v = cmp();
+        if (nxt() !== ")") throw new GeomError("несбалансированные скобки: " + src);
+        return v;
+      }
+      if (t.startsWith("@")) {
+        const m = REF_RE.exec(t);
+        if (m && (m[2] === "R" || m[2] === "r")) return this.circleRadius(m[1]);
+        if (m && m[3]) {
+          const [px, py] = this.point(m[1], m[2]);
+          return m[3] === "x" ? px : py;
+        }
+        throw new GeomError("точка без .x/.y внутри формулы: " + t);
+      }
+      if (/^[A-Za-z_]\w*$/.test(t)) {
+        if (peek() === "(") return this.callFunc(t.toUpperCase(), src, nxt, expr);
+        return this.var(t);
+      }
+      const num = Number(t);
+      if (Number.isNaN(num)) throw new GeomError(`не понял токен «${t}» в: ${src}`);
+      return num;
+    };
+
+    /* самый низкий приоритет: сравнение.
+       Возвращает 1 или 0 — так условие работает как выключатель. */
+    const cmp = () => {
+      let v = expr();
+      while (peek() === "=" || peek() === "<>") {
+        const op = nxt();
+        const r = expr();
+        const eq = Math.abs(v - r) < 1e-9;
+        v = (op === "=" ? eq : !eq) ? 1 : 0;
+      }
+      return v;
+    };
+
+    const v = cmp();
+    if (pos !== toks.length) throw new GeomError("лишние символы в выражении: " + src);
+    return v;
+  }
+
+  callFunc(name, src, nxt, expr) {
+    const f = FUNCS[name];
+    if (!f)
+      throw new GeomError(`неизвестная функция ${name}() в: ${src} — есть ${Object.keys(FUNCS).sort().join(", ")}`);
+    if (nxt() !== "(") throw new GeomError(`после ${name} ожидалась скобка`);
+    const args = [];
+    if (peekIsClose(name, nxt, args)) {
+      /* пустой список аргументов */
+    } else {
+      args.push(expr());
+      for (;;) {
+        const t = nxt();
+        if (t === ")") break;
+        if (t !== ",") throw new GeomError(`в ${name}(): ожидалась ',' или ')', получено «${t}»`);
+        args.push(expr());
+      }
+    }
+    if (args.length < f.lo || args.length > f.hi)
+      throw new GeomError(`${name}() ждёт ${f.lo === f.hi ? f.lo : f.lo + "-" + f.hi} аргумент(ов), получено ${args.length}`);
+    return f.fn(args);
+  }
+
+  /* ----------------------------------------------------------- точки */
+  /* радиус окружности по ссылке @R1.R */
+  circleRadius(ref0) {
+    const ref = normId(ref0);
+    if (!ref.startsWith("R"))
+      throw new GeomError(`@${ref}.R: радиус есть только у окружностей — обращайся как @R1.R`);
+    if (!this._src.has(ref))
+      throw new GeomError(`ссылка на несуществующую окружность @${ref} — объяви ${ref} в [ОКРУЖНОСТИ]`);
+    const row = this._src.get(ref);
+    const key = ref + "|R";
+    if (this._pts.has(key)) return this._pts.get(key);
+    if (this._vs.includes(ref))
+      throw new GeomError(`циклическая ссылка через радиус ${ref}.R`);
+    this._vs.push(ref);
+    let r;
+    try { r = this.scalar(row[4]); }
+    finally { this._vs.pop(); }
+    this._pts.set(key, r);
+    return r;
+  }
+
+  point(ref0, which) {
+    const ref = normId(ref0);
+    const key = ref + "|" + which;
+    if (this._pts.has(key)) return this._pts.get(key);
+    if (this._vs.includes(ref))
+      throw new GeomError(`циклическая ссылка через ${ref}.${which}`);
+    if (!this._src.has(ref))
+      throw new GeomError(`ссылка на несуществующий объект @${ref}`);
+    this._vs.push(ref);
+    try {
+      const row = this._src.get(ref);
+      if (row[0] === "line") {
+        const [, , x1, y1, x2, y2] = row;
+        this._pts.set(ref + "|S", this.pair(x1, y1));
+        this._pts.set(ref + "|E", this.pair(x2, y2));
+      } else {
+        const [, , cx, cy, r, a1, a2] = row;
+        const c = this.pair(cx, cy);
+        const rad = this.scalar(r);
+        if (rad <= 0) throw new GeomError(`@${ref}: радиус должен быть больше нуля`);
+        this._pts.set(ref + "|C", c);
+        this._pts.set(ref + "|S", onArc(c, rad, this.scalar(a1)));
+        this._pts.set(ref + "|E", onArc(c, rad, this.scalar(a2)));
+      }
+    } finally { this._vs.pop(); }
+    if (!this._pts.has(key))
+      throw new GeomError(`@${ref}: нет точки .${which} (у линий только .S и .E)`);
+    return this._pts.get(key);
+  }
+
+  evalPoint(s) {
+    const q = fixDecimalComma(String(s).replace(/\s+/g, ""));
+    const m = REF_RE.exec(q);
+    if (!m) throw new GeomError("не похоже на точку: " + s);
+    let [x, y] = this.point(m[1], m[2]);
+    let rest = q.slice(m[0].length);
+    while (rest) {
+      const st = STEP_RE.exec(rest);
+      if (!st) throw new GeomError("плохое смещение точки: " + rest);
+      const dx = this.scalar(st[2]);
+      const dy = this.scalar(st[3]);
+      if (st[1] === "+") { x += dx; y += dy; } else { x -= dx; y -= dy; }
+      rest = rest.slice(st[0].length);
+    }
+    return [x, y];
+  }
+
+  static isPoint(s) {
+    const q = String(s).replace(/\s+/g, "");
+    const m = REF_RE.exec(q);
+    if (!m || m[3]) return false;
+    let rest = q.slice(m[0].length);
+    while (rest) {
+      const st = STEP_RE.exec(rest);
+      if (!st) return false;
+      rest = rest.slice(st[0].length);
+    }
+    return true;
+  }
+
+  /* Условие строки: ноль — не рисовать, иначе рисовать.
+     Пустое условие = рисовать всегда. */
+  _cond(src, pid) {
+    if (src === undefined || src === null) return true;
+    const t = String(src).trim();
+    if (t === "") return true;
+    let v;
+    try { v = this.scalar(t); }
+    catch (e) { throw new GeomError(`условие у ${pid}: ${e.message}`); }
+    return Math.abs(v) > 1e-9;
+  }
+
+  pair(sx0, sy0) {
+    const sx = fixDecimalComma(sx0 === null || sx0 === undefined ? "" : String(sx0).trim());
+    const sy = fixDecimalComma(sy0 === null || sy0 === undefined ? "" : String(sy0).trim());
+    const psx = Drawing.isPoint(sx);
+    const psy = Drawing.isPoint(sy);
+    if (psx && psy) throw new GeomError("точка задана в обеих клетках пары");
+    if (psx && sy === "") return this.evalPoint(sx);
+    if (psy && sx === "") return this.evalPoint(sy);
+    const x = psx ? this.evalPoint(sx)[0] : this.scalar(sx);
+    const y = psy ? this.evalPoint(sy)[1] : this.scalar(sy);
+    return [x, y];
+  }
+
+  /* ---------------------------------------------------------- сборка */
+  _build() {
+    /* Сначала индексируем строки: переменные сетки могут ссылаться
+       на точки линий и окружностей (@L1.S.x, @R1.R и т.п.). */
+    for (const row of this.linesSrc) {
+      if (row.length < 6) throw new GeomError("в строке линии меньше 6 полей");
+      const pid = normId(row[0]);
+      if (this._src.has(pid)) throw new GeomError("дубль номера: " + pid);
+      this._src.set(pid, ["line", normType(row[1]), row[2], row[3], row[4], row[5], row[6], row[7]]);
+    }
+    for (const row of this.circlesSrc) {
+      if (row.length < 7) throw new GeomError("в строке окружности меньше 7 полей");
+      const pid = normId(row[0]);
+      if (!pid.startsWith("R"))
+        throw new GeomError(`окружность должна иметь номер вида R1, а не «${row[0]}»`);
+      if (this._src.has(pid)) throw new GeomError("дубль номера: " + pid);
+      this._src.set(pid, ["arc", normType(row[1]), row[2], row[3], row[4], row[5], row[6], row[7], row[8]]);
+    }
+
+    for (const key of this.gridSrc.keys()) this.var(key);
+
+    const order = [...this._src.keys()].sort((a, b) => {
+      const ra = a.startsWith("R") ? 1 : 0;
+      const rb = b.startsWith("R") ? 1 : 0;
+      if (ra !== rb) return ra - rb;
+      return parseInt(a.replace(/^[LR]/, ""), 10) - parseInt(b.replace(/^[LR]/, ""), 10);
+    });
+
+    for (const pid of order) {
+      const row = this._src.get(pid);
+      if (row[0] === "line") {
+        const [, t, x1, y1, x2, y2, cond, nomir] = row;
+        if (!this._cond(cond, pid)) { this.hidden.push(pid); continue; }
+        const a = this.pair(x1, y1);
+        const b = this.pair(x2, y2);
+        const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        if (L < 1e-9) {
+          this.notes.push(`линия ${pid} вырождена (нулевая длина), пропущена`);
+          continue;
+        }
+        this.segments.push({ kind: "line", id: pid, type: t, a, b, len: L, noMirror: this._noMirror(nomir, pid) });
+      } else {
+        const [, t, cx, cy, r, a1, a2, ccond, cnomir] = row;
+        if (!this._cond(ccond, pid)) { this.hidden.push(pid); continue; }
+        const c = this.pair(cx, cy);
+        const rad = this.scalar(r);
+        if (rad <= 0) {
+          this.notes.push(`дуга ${pid} вырождена (радиус 0), пропущена`);
+          continue;
+        }
+        const s = this.scalar(a1);
+        const e = this.scalar(a2);
+        let span = ((e - s) % 360 + 360) % 360;
+        const full = Math.abs(span) < 1e-9;
+        if (full) span = 360;
+        this.segments.push({
+          kind: "arc", id: pid, type: t, c, r: rad, noMirror: this._noMirror(cnomir, pid),
+          start: s, end: e, span, full,
+          a: onArc(c, rad, s), b: onArc(c, rad, e),
+          len: rad * (span * Math.PI / 180),
+        });
+      }
+    }
+
+    this._applyMirrors();
+    this._bbox();
+    if (!this.segments.length) this.notes.push("модель пустая — ни одного отрезка");
+  }
+
+  /* ------------------------------------------------------- зеркальность
+     Оси задаются в [СЕТКА] обычными переменными — их наличие включает отражение.
+
+       MIRROR_Y = 0        горизонтальная ось y=0: копия уходит вниз (верх <-> низ)
+       MIRROR_X = 0        вертикальная ось x=0: копия уходит вправо (лево <-> право)
+       MIRROR_CUT_Y = 0    перед отражением срезать всё ниже оси
+       MIRROR_CUT_X = 0    перед отражением срезать всё правее оси
+
+     Отражение ДОБАВЛЯЕТ копии, исходник остаётся на месте. Если заданы обе оси,
+     сначала строится копия по X, затем обе копии отражаются по Y — 4 квадранта.
+     Копии получают суффикс в номере: 5 -> 5#X -> 5#X#Y.
+
+     MIRROR_CUT_Y нужен, когда исходник нарисован по обе стороны от оси
+     (например, пачка с осью Y=0): без обрезки копия ляжет поверх исходника,
+     горизонтальные отрезки совпадут, а вертикальные удвоятся. */
+  _axisOrNull(name) {
+    const key = String(name).toUpperCase();
+    if (!this.gridSrc.has(key)) return null;
+    const v = this.var(key);
+    if (!Number.isFinite(v))
+      throw new GeomError(`ось зеркала ${name} должна быть числом, получено «${v}»`);
+    return v;
+  }
+
+  /* отражение одного отрезка; which = "X" или "Y" — какая координата меняет знак */
+  _reflect(sg, which, axisVal, suffix) {
+    const flip = (p) => {
+      if (which === "X") return [2 * axisVal - p[0], p[1]];
+      return [p[0], 2 * axisVal - p[1]];
+    };
+    const id = sg.id + suffix;
+    if (sg.kind === "line") {
+      return { ...sg, id, a: flip(sg.a), b: flip(sg.b) };
+    }
+    const c = flip(sg.c);
+    // при отражении дуга меняет направление обхода — переставляем концы,
+    // чтобы порядок start -> end снова шёл против часовой стрелки
+    const s = which === "X" ? 180 - sg.end : -sg.end;
+    const e = which === "X" ? 180 - sg.start : -sg.start;
+    const start = ((s % 360) + 360) % 360;
+    const end = ((e % 360) + 360) % 360;
+    let span = ((end - start) % 360 + 360) % 360;
+    const full = Math.abs(span) < 1e-9;
+    if (full) span = 360;
+    return {
+      ...sg, id, c, start, end, span, full,
+      a: onArc(c, sg.r, start), b: onArc(c, sg.r, end),
+    };
+  }
+
+  /* обрезка отрезка по прямой, параллельной оси.
+     keep = +1 оставить полуплоскость coord >= val, -1 оставить coord <= val.
+     Линия, пересекающая прямую, укорачивается до неё; дуга отбрасывается,
+     если её центр оказался в отбрасываемой половине. */
+  _clipHalf(sg, which, val, keep) {
+    if (sg.kind === "arc") {
+      const c = which === "Y" ? sg.c[1] : sg.c[0];
+      const ok = keep > 0 ? c >= val - 1e-9 : c <= val + 1e-9;
+      return ok ? [sg] : [];
+    }
+    const ca = which === "Y" ? sg.a[1] : sg.a[0];
+    const cb = which === "Y" ? sg.b[1] : sg.b[0];
+    const inA = keep > 0 ? ca >= val - 1e-9 : ca <= val + 1e-9;
+    const inB = keep > 0 ? cb >= val - 1e-9 : cb <= val + 1e-9;
+    if (inA && inB) return [sg];
+    if (!inA && !inB) return [];
+
+    const d = cb - ca;
+    if (Math.abs(d) < 1e-12) return [];
+    const t = (val - ca) / d;
+    if (!(t > 1e-9 && t < 1 - 1e-9)) return inA || inB ? [sg] : [];
+    const cut = [
+      sg.a[0] + (sg.b[0] - sg.a[0]) * t,
+      sg.a[1] + (sg.b[1] - sg.a[1]) * t,
+    ];
+    if (inA) {
+      return [{ ...sg, b: cut, len: Math.hypot(cut[0] - sg.a[0], cut[1] - sg.a[1]) }];
+    }
+    return [{ ...sg, a: cut, len: Math.hypot(sg.b[0] - cut[0], sg.b[1] - cut[1]) }];
+  }
+
+  _trimToMirror(cx, cy) {
+    const before = this.segments.length;
+    let out = this.segments;
+    if (cy !== null) out = out.flatMap((sg) => this._clipHalf(sg, "Y", cy, +1));
+    if (cx !== null) out = out.flatMap((sg) => this._clipHalf(sg, "X", cx, -1));
+    this.segments = out.filter((sg) => sg.len === undefined || sg.len > 1e-9);
+    this.cuts.push(`обрезка по оси: ${before} -> ${this.segments.length}`);
+  }
+
+  /* Восьмое поле строки линии (девятое у окружности): «не зеркалить».
+     Пусто или 0 — обычное поведение, иначе сегмент не получает зеркальных копий. */
+  _noMirror(src, pid) {
+    if (src === undefined || src === null) return false;
+    const t = String(src).trim();
+    if (t === "") return false;
+    try { return this._cond(t, pid); } catch (e) { return false; }
+  }
+
+  _applyMirrors() {
+    const mx = this._axisOrNull("MIRROR_X");
+    const my = this._axisOrNull("MIRROR_Y");
+    const cx = this._axisOrNull("MIRROR_CUT_X");
+    const cy = this._axisOrNull("MIRROR_CUT_Y");
+    this.mirrors = [];
+    this.cuts = [];
+    if (mx === null && my === null) return;
+
+    if (cx !== null || cy !== null) this._trimToMirror(cx, cy);
+
+    /* сегменты с пометкой «не зеркалить» остаются в единственном экземпляре */
+    let cur = this.segments.filter((s) => !s.noMirror);
+    const added = [];
+    if (mx !== null) {
+      const copyX = cur.map((s) => this._reflect(s, "X", mx, "#X"));
+      added.push(...copyX);
+      cur = cur.concat(copyX);
+      this.mirrors.push(`X (ось x=${fmt(mx)})`);
+    }
+    if (my !== null) {
+      const copyY = cur.map((s) => this._reflect(s, "Y", my, "#Y"));
+      added.push(...copyY);
+      this.mirrors.push(`Y (ось y=${fmt(my)})`);
+    }
+    this.segments = this.segments.concat(added);
+    this.notes.push(
+      `зеркало по ${this.mirrors.join(", ")} — добавлено копий: ${added.length}`
+    );
+  }
+
+  _bbox() {
+    const xs = [], ys = [];
+    for (const sg of this.segments) {
+      xs.push(sg.a[0], sg.b[0]);
+      ys.push(sg.a[1], sg.b[1]);
+      if (sg.kind === "arc") {
+        const [cx, cy] = sg.c;
+        if (sg.full) {
+          xs.push(cx - sg.r, cx + sg.r);
+          ys.push(cy - sg.r, cy + sg.r);
+          continue;
+        }
+        for (const k of [0, 90, 180, 270]) {
+          if (angleIn(k, sg.start, sg.span)) {
+            const p = onArc(sg.c, sg.r, k);
+            xs.push(p[0]); ys.push(p[1]);
+          }
+        }
+      }
+    }
+    if (!xs.length) throw new GeomError("нет ни одного отрезка — нечего строить");
+    this.bbox = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+    this.w = this.bbox[2] - this.bbox[0];
+    this.h = this.bbox[3] - this.bbox[1];
+  }
+
+  /* ---------------------------------------------------------- итоги */
+  total(typ) {
+    return this.segments.filter((s) => s.type === typ).reduce((a, s) => a + s.len, 0);
+  }
+  count(typ) {
+    return this.segments.filter((s) => s.type === typ).length;
+  }
+  variables() {
+    const out = {};
+    for (const [k] of this.gridSrc) out[this.origNames.get(k)] = this.var(k);
+    return out;
+  }
+
+  checkCut() {
+    const cuts = this.segments.filter((s) => s.type === "cut");
+    if (!cuts.length) return { ok: null, bad: {}, vertices: 0, reason: "реза нет" };
+    const deg = new Map();
+    for (const sg of cuts) {
+      if (sg.kind === "arc" && sg.full) continue;
+      for (const p of [sg.a, sg.b]) {
+        const k = p[0].toFixed(4) + "," + p[1].toFixed(4);
+        deg.set(k, (deg.get(k) || 0) + 1);
+      }
+    }
+    const bad = {};
+    for (const [k, v] of deg) if (v !== 2) bad[k] = v;
+    return { ok: Object.keys(bad).length === 0, bad, vertices: deg.size };
+  }
+
+  /* ------------------------------------------------------------ DXF */
+  /* R12 ASCII: открывается в AutoCAD, CorelDRAW, лазерных и плоттерных
+     программах. Единицы — миллиметры, ось Y вверх, как в модели. */
+  dxf() {
+    const LAYERS = {
+      cut:    { name: "CUT",    color: DXF_COLOR.cut },
+      crease: { name: "CREASE", color: DXF_COLOR.crease },
+      perf:   { name: "PERF",   color: DXF_COLOR.perf },
+      perfo:  { name: "PERFO",  color: DXF_COLOR.perfo, lt: "CENTER" },
+    };
+    const out = [];
+    const g = (code, val) => { out.push(String(code), String(val)); };
+    const num = (v) => {
+      const r = Math.round(v * 10000) / 10000;
+      return Number.isInteger(r) ? String(r) : r.toFixed(4);
+    };
+
+    g(0, "SECTION"); g(2, "HEADER");
+    // 999 — группа-комментарий, CAD-читатели её игнорируют
+    g(999, "Made by Yauheni Padloukin @evgenpdl & Claude Haiku 5.5");
+    g(999, "Raschet upakovki / parametric unfold. Author: Yauheni Padloukin @evgenpdl");
+    g(999, "Co-author: Claude Haiku 5.5 (Anthropic)");
+    g(9, "$ACADVER"); g(1, "AC1009");
+    g(9, "$INSUNITS"); g(70, 4);          // 4 = миллиметры
+    g(9, "$EXTMIN");
+    g(10, num(this.bbox[0])); g(20, num(this.bbox[1])); g(30, "0");
+    g(9, "$EXTMAX");
+    g(10, num(this.bbox[2])); g(20, num(this.bbox[3])); g(30, "0");
+    g(0, "ENDSEC");
+
+    const used = [...new Set(this.segments.map((s) => s.type))]
+      .filter((t) => LAYERS[t]);
+
+    g(0, "SECTION"); g(2, "TABLES");
+    // тип линии CENTER — прерывистая осевая для перфорации (длины в мм)
+    g(0, "TABLE"); g(2, "LTYPE"); g(70, 1);
+    g(0, "LTYPE"); g(2, "CENTER"); g(70, 0); g(3, "Center dash-dot");
+    g(72, 65); g(73, 4); g(40, 18);
+    g(49, 12); g(49, -3); g(49, 0); g(49, -3);
+    g(0, "ENDTAB");
+    g(0, "TABLE"); g(2, "LAYER"); g(70, used.length);
+    for (const t of used) {
+      const l = LAYERS[t];
+      g(0, "LAYER"); g(2, l.name); g(70, "0"); g(62, l.color); g(6, l.lt || "CONTINUOUS");
+    }
+    g(0, "ENDTAB");
+    g(0, "ENDSEC");
+
+    g(0, "SECTION"); g(2, "ENTITIES");
+    for (const s of this.segments) {
+      const l = LAYERS[s.type];
+      if (!l) continue;                     // направляющие не выгружаем
+
+      if (s.kind === "line") {
+        // схлопнутая в точку линия не выгружается
+        if (Math.abs(s.b[0] - s.a[0]) < 1e-9 && Math.abs(s.b[1] - s.a[1]) < 1e-9) continue;
+        g(0, "LINE"); g(8, l.name);
+        g(10, num(s.a[0])); g(20, num(s.a[1])); g(30, "0");
+        g(11, num(s.b[0])); g(21, num(s.b[1])); g(31, "0");
+      } else if (s.full) {
+        g(0, "CIRCLE"); g(8, l.name);
+        g(10, num(s.c[0])); g(20, num(s.c[1])); g(30, "0");
+        g(40, num(s.r));
+      } else {
+        // Модель строит дугу против часовой стрелки от start до end,
+        // DXF-ARC тоже всегда против часовой — углы переносятся как есть.
+        const a1 = ((s.start % 360) + 360) % 360;
+        const a2 = ((s.end % 360) + 360) % 360;
+        g(0, "ARC"); g(8, l.name);
+        g(10, num(s.c[0])); g(20, num(s.c[1])); g(30, "0");
+        g(40, num(s.r)); g(50, num(a1)); g(51, num(a2));
+      }
+    }
+    g(0, "ENDSEC");
+    g(999, "Made by Yauheni Padloukin @evgenpdl & Claude Haiku 5.5");
+    g(0, "EOF");
+
+    return out.join("\r\n") + "\r\n";
+  }
+
+  /* ------------------------------------------------------------ SVG */
+  svg({ margin = 10, markIds = false, grid = false, showGuides = false, layers: layerList = null } = {}) {
+    const [x0, , x1, y1] = this.bbox;
+    const W = this.w + margin * 2;
+    const H = this.h + margin * 2;
+    const tx = (p) => [p[0] - x0 + margin, y1 - p[1] + margin];
+
+    const out = [
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${fmt(W)}mm" height="${fmt(H)}mm" viewBox="0 0 ${fmt(W)} ${fmt(H)}">`,
+      `<title>Raschet upakovki - razvyortka</title>`,
+      `<desc>Made by Yauheni Padloukin @evgenpdl &amp; Claude Haiku 5.5</desc>`,
+      `<metadata>Made by Yauheni Padloukin @evgenpdl &amp; Claude Haiku 5.5 | Raschet upakovki: parametric unfold, crease and cut lines | Author: Yauheni Padloukin @evgenpdl | Co-author: Claude Haiku 5.5 (Anthropic)</metadata>`,
+    ];
+    if (grid) {
+      out.push('<g stroke="#e2e8f0" stroke-width="0.15" fill="none">');
+      for (let k = 0; k <= W; k += 50) out.push(`<line x1="${k}" y1="0" x2="${k}" y2="${fmt(H)}"/>`);
+      for (let k = 0; k <= H; k += 50) out.push(`<line x1="0" y1="${k}" x2="${fmt(W)}" y2="${k}"/>`);
+      out.push("</g>");
+    }
+    const layers = layerList || (showGuides ? ["guide", "perf", "perfo", "crease", "cut"] : ["perf", "perfo", "crease", "cut"]);
+    for (const typ of layers) {
+      const st = this.style[typ];
+      const ds = st.dash ? ` stroke-dasharray="${st.dash}"` : "";
+      const parts = [];
+      for (const sg of this.segments) {
+        if (sg.type !== typ) continue;
+        if (sg.kind === "line") {
+          const a = tx(sg.a), b = tx(sg.b);
+          parts.push(`<line x1="${f3(a[0])}" y1="${f3(a[1])}" x2="${f3(b[0])}" y2="${f3(b[1])}"/>`);
+        } else if (sg.full) {
+          const c = tx(sg.c);
+          parts.push(`<circle cx="${f3(c[0])}" cy="${f3(c[1])}" r="${f3(sg.r)}"/>`);
+        } else {
+          const a = tx(sg.a), b = tx(sg.b);
+          const large = sg.span > 180 ? 1 : 0;
+          parts.push(`<path d="M ${f3(a[0])} ${f3(a[1])} A ${f3(sg.r)} ${f3(sg.r)} 0 ${large} 0 ${f3(b[0])} ${f3(b[1])}"/>`);
+        }
+      }
+      if (parts.length)
+      out.push(`<g id="${typ}" data-type="${typ}" stroke="${st.color}" stroke-width="${st.width}" fill="none" stroke-linecap="square"${ds}>${parts.join("")}</g>`);
+    }
+    if (markIds) {
+      const txt = [];
+      for (const sg of this.segments) {
+        const p = sg.kind === "arc" ? tx(sg.c)
+          : tx([(sg.a[0] + sg.b[0]) / 2, (sg.a[1] + sg.b[1]) / 2]);
+        txt.push(`<text x="${f3(p[0])}" y="${f3(p[1])}" font-family="monospace" font-size="5" fill="#6b7280">${sg.id}</text>`);
+      }
+      out.push(txt.join(""));
+    }
+    out.push("</svg>");
+    return out.join("\n");
+  }
+}
+
+function peekIsClose(_name, _nxt, _args) { return false; }
+
+function onArc(c, r, ang) {
+  const a = ang * Math.PI / 180;
+  return [c[0] + r * Math.cos(a), c[1] + r * Math.sin(a)];
+}
+
+function angleIn(ang, start, span) {
+  const d = ((ang - start) % 360 + 360) % 360;
+  return d <= span + 1e-9 || d >= 360 - 1e-9;
+}
+
+const fmt = (x) => (Math.abs(x - Math.round(x)) < 1e-9 ? String(Math.round(x)) : x.toFixed(2));
+const f3 = (x) => (Math.round(x * 1000) / 1000).toFixed(3);
+
+/* ------------------------------------------------------------ чтение */
+const SEC_ALIAS = {
+  "сетка": "grid", grid: "grid", vars: "grid", "переменные": "grid",
+  "линии": "lines", lines: "lines",
+  "окружности": "circles", circles: "circles", "арки": "circles",
+  "проверки": "checks", checks: "checks", "условия": "checks",
+};
+
+function splitFields(s) {
+  s = s.replace(/\s+$/, "");
+  if (s.includes("|")) return [s.split("|").map((f) => f.trim()), true];
+  return [s.split(/\s+/).filter(Boolean), false];
+}
+function dropTailComment(fields) {
+  const i = fields.findIndex((f) => f.startsWith("#") || f.startsWith("//"));
+  return i >= 0 ? fields.slice(0, i) : fields;
+}
+
+function parseSrc(src) {
+  const grid = {}, lines = [], circles = [], checks = [];
+  const seen = new Map();
+  let cur = null;
+  const rows = String(src).split(/\r?\n/);
+
+  for (let i = 0; i < rows.length; i++) {
+    const line = rows[i].replace(/\s+$/, "");
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#") || trimmed.startsWith("//")) continue;
+
+    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+      const name = trimmed.slice(1, -1).trim().toLowerCase();
+      if (!SEC_ALIAS[name]) throw new GeomError(`строка ${i + 1}: неизвестная секция [${name}]`);
+      cur = SEC_ALIAS[name];
+      continue;
+    }
+    if (cur === null) throw new GeomError(`строка ${i + 1}: строка вне секции — начни с [СЕТКА]`);
+
+    try {
+      if (cur === "grid") {
+        if (!line.includes("=")) throw new GeomError("в [СЕТКА] нужно «A = 300»");
+        const idx = line.indexOf("=");
+        let k = line.slice(0, idx).trim();
+        let v = line.slice(idx + 1).trim();
+        for (const mark of ["#", "//"]) if (v.includes(mark)) v = v.split(mark)[0].trim();
+        if (!v) throw new GeomError(`у переменной ${k} пустое значение`);
+        const ku = k.toUpperCase();
+        if (seen.has(ku))
+          throw new GeomError(`переменная ${k} объявлена дважды (строки ${seen.get(ku)} и ${i + 1})`);
+        seen.set(ku, i + 1);
+        grid[k] = v;
+      } else if (cur === "checks") {
+        let [fields, keep] = splitFields(line);
+        if (!keep) fields = fields.filter((f) => f !== "");
+        if (fields.length < 2)
+          throw new GeomError("в [ПРОВЕРКИ] нужно: имя | условие | [сообщение] | [стоп]");
+        const flag = (fields[3] || "").trim().toLowerCase();
+        checks.push([fields[0], fields[1], fields[2] || "", flag]);
+      } else {
+        let [fields, keep] = splitFields(line);
+        fields = dropTailComment(fields);
+        if (!keep) fields = fields.filter((f) => f !== "");
+        const need = cur === "lines" ? 6 : 7;
+        const max = need + 2;               // 7-е поле — условие, 8-е — «не зеркалить»
+        if (fields.length < need || fields.length > max)
+          throw new GeomError(
+            fields.length < need
+              ? `нужно ${need} полей, получено ${fields.length}`
+              : `полей больше, чем нужно: ${fields.length} (${need} или ${max} с условием)`
+          );
+        (cur === "lines" ? lines : circles).push(fields);
+      }
+    } catch (e) {
+      if (e instanceof GeomError)
+        throw new GeomError(`строка ${i + 1}: ${e.message}\n    ${trimmed}`);
+      throw e;
+    }
+  }
+  return { grid, lines, circles, checks };
+}
+
+function parseText(src, params) {
+  const { grid, lines, circles, checks } = parseSrc(src);
+  return new Drawing(grid, lines, circles, params, checks);
+}
+
+/* ------------------------------------------------------------ линтер */
+function lint(src, params = {}) {
+  const problems = [], warnings = [], blocking = [], infos = [];
+  let parsed;
+  try { parsed = parseSrc(src); }
+  catch (e) { return { problems: [e.message], warnings: [], blocking: [], externals: [], infos: [] }; }
+  const { grid, lines, circles, checks } = parsed;
+
+  const up = new Map();
+  for (const [k, v] of Object.entries(grid)) up.set(k.toUpperCase(), [k, v]);
+
+  const probe = Object.create(Drawing.prototype);
+  probe.gridSrc = new Map();
+  for (const [k, v] of Object.entries(grid)) probe.gridSrc.set(k.toUpperCase(), v);
+  probe.origNames = new Map(Object.keys(grid).map((k) => [k.toUpperCase(), k]));
+  probe.params = new Map(Object.entries(params || {}).map(([k, v]) => [k.toUpperCase(), Number(v)]));
+  probe._vc = new Map();
+  probe._vs = [];
+  probe._pts = new Map();
+  probe._src = new Map();
+
+  const val = (name) => { probe._vc.clear(); probe._vs.length = 0; return probe.var(name); };
+
+  /* 1. самоссылка */
+  const selfref = new Set();
+  for (const [ku, [k, v]] of up) {
+    if (v.trim() === EXTERNAL_MARK) continue;
+    const expr = fixDecimalComma(v);
+    if (new RegExp("\\b" + ku.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "i").test(expr)) {
+      selfref.add(ku);
+      problems.push(`ось ${k} = ${v} ссылается на саму себя — почти наверняка опечатка в имени соседней оси`);
+    }
+  }
+
+  /* 2. необъявленные переменные и неизвестные функции */
+  const undeclared = new Map(), badfunc = new Map();
+  for (const [ku, [k, v]] of up) {
+    if (selfref.has(ku) || v.trim() === EXTERNAL_MARK) continue;
+    const expr = fixDecimalComma(v);
+    for (const name of expr.match(/[A-Za-z_]\w*/g) || []) {
+      const nu = name.toUpperCase();
+      if (FUNCS[nu]) continue;
+      if (!up.has(nu)) {
+        if (!undeclared.has(nu)) undeclared.set(nu, []);
+        undeclared.get(nu).push(k);
+      }
+    }
+    for (const m of expr.matchAll(/([A-Za-z_]\w*)\s*\(/g)) {
+      const nu = m[1].toUpperCase();
+      if (!FUNCS[nu] && !up.has(nu)) {
+        if (!badfunc.has(nu)) badfunc.set(nu, []);
+        badfunc.get(nu).push(k);
+      }
+    }
+  }
+  for (const [name, users] of undeclared) {
+    if (badfunc.has(name)) continue;
+    problems.push(`переменная ${name} не объявлена в [СЕТКА], но нужна для: ${users.join(", ")}. Если это габарит из формы — объяви как «${name} = ?»`);
+  }
+  for (const [name, users] of badfunc) {
+    const close = Object.keys(FUNCS).find((f) => f.startsWith(name.slice(0, 2)));
+    const hint = close ? ` — возможно, имелось в виду ${close}()` : "";
+    problems.push(`неизвестная функция ${name}() в строках ${users.join(", ")}${hint}. Доступно: ${Object.keys(FUNCS).sort().join(", ")}`);
+  }
+
+  const badVars = new Set([...selfref, ...undeclared.keys(), ...badfunc.keys()]);
+  for (const users of undeclared.values()) for (const u of users) badVars.add(u.toUpperCase());
+
+  /* 3. прочие ошибки сетки */
+  for (const [ku, [k, v]] of up) {
+    if (badVars.has(ku) || v.trim() === EXTERNAL_MARK) continue;
+    try { val(k); }
+    catch (e) {
+      if (e instanceof GeomError) {
+        let skip = false;
+        for (const b of badVars) if (new RegExp("\\b" + b + "\\b", "i").test(e.message)) { skip = true; break; }
+        if (skip) continue;
+        problems.push(`ось ${k} = ${v}: ${e.message}`);
+      } else throw e;
+    }
+  }
+
+  /* 4. сборка */
+  let d = null;
+  try { d = new Drawing(grid, lines, circles, params, checks); }
+  catch (e) {
+    if (e instanceof GeomError) {
+      if (!badVars.size) problems.push("сборка: " + e.message);
+      for (const row of lines) {
+        try { new Drawing(grid, [row], [], params, checks); }
+        catch (le) {
+          if (le instanceof GeomError) {
+            let skip = false;
+            for (const b of badVars) if (new RegExp("\\b" + b + "\\b", "i").test(le.message)) { skip = true; break; }
+            if (skip) continue;
+            problems.push(`линия ${row[0]}: ${le.message}`);
+          }
+        }
+      }
+    } else throw e;
+  }
+
+  /* 4б. пользовательские проверки */
+  const STOP_FLAGS = new Set(["стоп", "stop", "блок", "block", "error", "ошибка"]);
+  // «инфо» — не проверка, а пояснение к расчёту: не считается ни ошибкой, ни предупреждением
+  const INFO_FLAGS = new Set(["инфо", "info", "сводка", "note"]);
+
+  for (const [name, cond, msg, flag] of checks) {
+    let ok;
+    try {
+      probe._vc.clear(); probe._vs.length = 0;
+      ok = probe.scalar(cond);
+    } catch (e) {
+      problems.push(`проверка "${name}": не удалось вычислить условие «${cond}» — ${e.message}`);
+      continue;
+    }
+    if (ok > 0) continue;
+
+    const text = msg ? msg.replace(/\{([A-Za-z_]\w*)\}/g, (mm, vn) => {
+      try { return fmt(probe.var(vn)); } catch { return mm; }
+    }) : "";
+
+    // «стоп» — не предупреждение, а запрет построения
+    if (flag && STOP_FLAGS.has(flag)) {
+      blocking.push(text || `проверка «${name}» не пройдена`);
+    } else if (flag && INFO_FLAGS.has(flag)) {
+      infos.push(text || name);          // просто пояснение, пользователю не мешает
+    } else {
+      warnings.push(`проверка «${name}» не выполнена${text ? " — " + text : ""}`);
+    }
+  }
+
+  const externals = Object.entries(grid).filter(([, v]) => v.trim() === EXTERNAL_MARK).map(([k]) => k);
+  const missing = externals.filter((k) => !probe.params.has(k.toUpperCase()));
+  if (missing.length)
+    warnings.push(`не заданы значения внешних переменных: ${missing.join(", ")} — придут из формы приложения`);
+
+  if (d) {
+    if (!d.segments.some((s) => s.type === "cut"))
+      warnings.push("линий реза нет — для пакета нормально (лист режется в размер штампа), для коробки нужен контур");
+
+    const [bx0, by0, bx1, by1] = d.bbox;
+    for (const s of d.segments)
+      for (const [p, tag] of [[s.a, "начало"], [s.b, "конец"]])
+        if (!(bx0 - 1e-6 <= p[0] && p[0] <= bx1 + 1e-6 && by0 - 1e-6 <= p[1] && p[1] <= by1 + 1e-6))
+          warnings.push(`линия ${s.id}: ${tag} (${p[0].toFixed(1)}, ${p[1].toFixed(1)}) вне габарита`);
+
+    const seenSeg = new Map();
+    for (const s of d.segments) {
+      if (s.kind !== "line") continue;
+      const kk = [s.a, s.b].map((p) => p[0].toFixed(3) + "," + p[1].toFixed(3)).sort().join("|");
+      if (seenSeg.has(kk)) warnings.push(`линии ${seenSeg.get(kk)} и ${s.id} совпадают`);
+      else seenSeg.set(kk, s.id);
+    }
+
+    const used = new Set();
+    for (const row of [...lines, ...circles])
+      for (const cell of row.slice(2))
+        for (const m of String(cell).match(/[A-Za-z_]\w*/g) || []) used.add(m.toUpperCase());
+    for (const [, [k, v]] of up) {
+      if (v.trim() === EXTERNAL_MARK) continue;
+      for (const m of fixDecimalComma(v).match(/[A-Za-z_]\w*/g) || []) {
+        const nu = m.toUpperCase();
+        if (FUNCS[nu]) continue;
+        used.add(nu);
+      }
+    }
+    for (const [, cond, msg] of checks) {
+      for (const m of String(cond).match(/[A-Za-z_]\w*/g) || []) used.add(m.toUpperCase());
+      for (const m of String(msg).match(/\{([A-Za-z_]\w*)\}/g) || [])
+        used.add(m.slice(1, -1).toUpperCase());
+    }
+    const MIRROR_VARS = new Set(["MIRROR_X", "MIRROR_Y"]);
+    const unused = [...up].filter(([ku, [, v]]) => !used.has(ku) && v.trim() !== EXTERNAL_MARK && !MIRROR_VARS.has(ku)).map(([, [k]]) => k);
+    if (unused.length) warnings.push(`объявлены, но нигде не используются: ${unused.sort().join(", ")}`);
+  }
+
+  const uniq = (a) => [...new Set(a)];
+  return { problems: uniq(problems), warnings: uniq(warnings),
+           blocking: uniq(blocking), externals, infos: uniq(infos) };
+}
+
+/* экспорт для node-тестов и для браузера */
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = { Drawing, GeomError, parseSrc, parseText, lint, FUNCS };
+}
+
+/* Модель пакета. Правится здесь — приложение пересобирать не нужно. */
+
+const MODEL_PACKET = `
+# Made by Yauheni Padloukin @evgenpdl & Claude Haiku 5.5
+# Author: Yauheni Padloukin @evgenpdl | Co-author: Claude Haiku 5.5# ============================================================
+#  ПАКЕТ — биговки + ручки + ленты
+#  Версия V6
+#  Объявляется как  A × H × B
+#    A — ширина,  H — высота,  B — глубина
+#  A, H, B, U, MODE объявлены как «?» — значения приходят из формы
+#  Лист режется в размер штампа, вырубного контура нет.
+#
+#  ЧЕТЫРЕ ВИДА (MODE):
+#    0 — чистый пакет, ни ручек, ни лент
+#    1 — отверстия под верёвочные ручки
+#    2 — отверстия под ленты
+#    3 — ленты с заклёпками
+# ============================================================
+
+[СЕТКА]
+A = ?
+H = ?
+B = ?
+U = ?              # ширина ленты, задаётся в форме
+MODE = ?           # вид пакета: 0 / 1 / 2 / 3
+PARTS = ?          # 1 — из одной части, 2 — из двух частей
+FRAME = ?          # 1 — вырубка с рамкой, 0 — без рамки
+
+# --- части пакета ---
+# ONE=1 у пакета из одной части, TWO=1 у пакета из двух частей.
+# Всё, что стоит правее оси X4 (и биговка на X4), у двух частей
+# не строится: такие линии схлопываются в точку и пропадают.
+ONE = 2-PARTS
+TWO = PARTS-1
+
+# --- рамка вырубки ---
+
+top     = 40       # верхний подгиб
+glue    = 15       # клапан склейки
+hole_d  = 3        # диаметр отверстия под верёвочную ручку (радиус 1.5)
+rivet_d = 3        # диаметр отверстия под заклёпку (радиус 1.5)
+
+# --- признаки вида ---
+ROPE  = MAX(0, 1-ABS(MODE-1))
+E2    = MAX(0, 1-ABS(MODE-2))
+E3    = MAX(0, 1-ABS(MODE-3))
+LENTA = E2+E3
+RIVET = E3
+GH    = MIN(1, ROPE+LENTA)
+
+# --- округление ---
+# Донный клапан — 0.75*B. Если при этом диагонали дна сходятся ближе 3 мм,
+# дно подрезается: клапан уменьшается ровно настолько, чтобы зазор стал 3 мм,
+# но не ниже B/2+20. Если и при B/2+20 зазор меньше 3 мм — пакет не строится.
+# Когда полный клапан зазору не мешает, подрезки нет совсем — даже если
+# полный клапан выходит меньше B/2+20 (у малых глубин это норма).
+Bq_full   = ROUND(B*0.75)
+Bq_gap    = (A-3)/2                    # максимум, при котором зазор ещё 3 мм
+Bq_floor  = B/2+20                     # ниже дно не подрезаем
+NEED_TRIM = MAX(0, MIN(1, (Bq_full-Bq_gap)*1000))
+Bq_trim   = MAX(FLOOR(Bq_gap*2)/2, Bq_floor)
+Bq        = Bq_full*(1-NEED_TRIM) + Bq_trim*NEED_TRIM
+
+Bd = ROUND(B*0.5, 0.5)
+Br = B-Bd
+
+# --- вертикальные оси ---
+X0  = 0
+X1  = X0+glue
+X2  = X1+Bd
+X3  = X2+Br
+X4  = X3+A
+X5  = X4+Bd
+X6  = X5+Br
+X7  = X6+A
+
+# --- оси дна ---
+X8  = X3+Bq
+X9  = X4-Bq
+X10 = X6+Bq
+X11 = X7-Bq
+
+# --- горизонтальные оси ---
+Y0  = 0
+Y1  = Y0+Bq
+Y2  = Y1+Bd
+Y3  = Y1+H
+Y4  = Y3+top
+
+# ============================================================
+#  РУЧКИ
+# ============================================================
+Yh1 = Y3+top/2
+Yh2 = Y3-top/2
+
+dh  = MIN(MIN(MAX(ROUND(A/3)+20, 80), A-44), 140)
+dw   = LENTA*(U+1)
+half = dw/2
+
+Xc1  = X3+A/2
+Xc2  = X6+A/2
+
+sh1 = LENTA*MAX(0, 22+half-(Xc1-dh/2-X3))
+sh2 = LENTA*MAX(0, 22+half-(Xc2-dh/2-X6))
+
+Xh11 = Xc1-dh/2+sh1
+Xh12 = Xc1+dh/2-sh1
+Xh21 = Xc2-dh/2+sh2
+Xh22 = Xc2+dh/2-sh2
+
+Xa1 = Xh11-half
+Xb1 = Xh11+half
+Xa2 = Xh12-half
+Xb2 = Xh12+half
+Xa3 = Xh21-half
+Xb3 = Xh21+half
+Xa4 = Xh22-half
+Xb4 = Xh22+half
+
+# Нижние точки диагоналей дна стоят в X8=X3+Bq и X9=X4-Bq,
+# расстояние между ними A-2*Bq. Меньше 3 мм — пакет не строится.
+# Минимальная ширина считается по подрезанному дну: Bq_floor.
+Amin = 2*Bq_floor+3
+
+# --- углы рамки вырубки ---
+# Правый край заготовки: у двух частей всё после X4 отрезано.
+Xr  = X7*ONE+X4*TWO
+
+# Рамка идёт по контуру заготовки, вплотную к биговкам:
+# слева X0 (начало дна и клапана), справа край заготовки,
+# снизу Y0, сверху Y4 — там заканчиваются вертикальные биговки.
+FX0 = X0+(X0-X0)*FRAME
+FY0 = Y0+(Y0-Y0)*FRAME
+FX1 = X0+(Xr-X0)*FRAME
+FY1 = Y0+(Y4-Y0)*FRAME
+
+
+Rr = hole_d/2*ROPE
+Rv = rivet_d/2*RIVET
+Ra = 3*LENTA
+
+[ЛИНИИ]
+# Схлопнутая линия (начало = конец) не рисуется. Так выключаются
+# элементы, которых нет у пакета из двух частей.
+# --- горизонтальные биговки ---
+L1  | биговка | X0 | Y1 | X4+(X7-X4)*ONE | Y1
+L2  | биговка | X0 | Y2 | X2+(X4-X2)*TWO | Y2
+L3  | биговка | X5 | Y2 | X5+(X7-X5)*ONE | Y2
+
+L4  | биговка | X0  | Y3 | Xa1 | Y3
+L21 | биговка | Xb1 | Y3 | Xa2 | Y3
+L22 | биговка | Xb2 | Y3 | Xa3*ONE+X4*TWO | Y3
+L23 | биговка | Xb3 | Y3 | Xb3+(Xa4-Xb3)*ONE | Y3
+L24 | биговка | Xb4 | Y3 | Xb4+(X7-Xb4)*ONE | Y3
+
+# --- вертикальные биговки ---
+L5  | биговка | X1 | Y0 | X1 | Y4
+L6  | биговка | X2 | Y0 | X2 | Y4
+L7  | биговка | X3 | Y0 | X3 | Y4
+L8  | биговка | X4 | Y0 | X4 | Y4*ONE
+L9  | биговка | X5 | Y0 | X5 | Y4*ONE
+L10 | биговка | X6 | Y0 | X6 | Y4*ONE
+# X7 — правый край листа, сгиба там нет
+
+# --- дно ---
+L12 | биговка | X0  | Y1-glue | X2  | Y2
+L13 | биговка | X2  | Y2      | X8  | Y0
+L14 | биговка | X9  | Y0      | X5*ONE+X4*TWO | Y2*ONE+Y2*(X4-X9)/(X5-X9)*TWO
+L15 | биговка | X5  | Y2      | X5+(X10-X5)*ONE | Y2+(Y0-Y2)*ONE
+L16 | биговка | X11 | Y0      | X11+(X7-X11)*ONE | Y0+(Y1-Y0)*ONE
+
+# --- направляющие: только когда есть ручки или ленты ---
+L17 | направляющая | Xh11 | Yh2 | Xh11 | Yh2+top*GH
+L18 | направляющая | Xh12 | Yh2 | Xh12 | Yh2+top*GH
+L19 | направляющая | Xh21 | Yh2 | Xh21 | Yh2+top*GH*ONE
+L20 | направляющая | Xh22 | Yh2 | Xh22 | Yh2+top*GH*ONE
+
+# --- основания пазов под ленту (рез, на Y3) ---
+L25 | рез | Xa1 | Y3 | Xb1 | Y3
+L27 | рез | Xa2 | Y3 | Xb2 | Y3
+L29 | рез | Xa3 | Y3 | Xa3+(Xb3-Xa3)*ONE | Y3
+L31 | рез | Xa4 | Y3 | Xa4+(Xb4-Xa4)*ONE | Y3
+
+# --- верхи пазов (рез, на Y3+Ra) ---
+L26 | рез | Xa1+Ra | Y3+Ra | Xb1-Ra | Y3+Ra
+L28 | рез | Xa2+Ra | Y3+Ra | Xb2-Ra | Y3+Ra
+L30 | рез | Xa3+Ra | Y3+Ra | (Xa3+Ra)+(Xb3-Ra-Xa3-Ra)*ONE | Y3+Ra
+L32 | рез | Xa4+Ra | Y3+Ra | (Xa4+Ra)+(Xb4-Ra-Xa4-Ra)*ONE | Y3+Ra
+
+# --- рамка вырубки: контур по габариту заготовки с отступом frame_m ---
+# Без галочки схлопывается в точку и не строится.
+# Контур заготовки по биговкам. При FRAME=0 углы сходятся в точку.
+L33 | рез | FX0 | FY0 | FX1 | FY0
+L34 | рез | FX1 | FY0 | FX1 | FY1
+L35 | рез | FX1 | FY1 | FX0 | FY1
+L36 | рез | FX0 | FY1 | FX0 | FY0
+
+[ОКРУЖНОСТИ]
+# Секция: № | тип | X центра | Y центра | радиус | угол нач | угол кон
+# радиус 0 — окружность не рисуется
+# --- отверстия под верёвочные ручки: лицо 1 (X3..X4) и лицо 2 (X6..X7) ---
+R1 | рез | Xh11 | Yh1 | Rr | 0 | 360
+R2 | рез | Xh12 | Yh1 | Rr | 0 | 360
+R3 | рез | Xh21 | Yh1 | Rr*ONE | 0 | 360
+R4 | рез | Xh22 | Yh1 | Rr*ONE | 0 | 360
+R5 | рез | Xh11 | Yh2 | Rr | 0 | 360
+R6 | рез | Xh12 | Yh2 | Rr | 0 | 360
+R7 | рез | Xh21 | Yh2 | Rr*ONE | 0 | 360
+R8 | рез | Xh22 | Yh2 | Rr*ONE | 0 | 360
+
+# --- дуги пазов: левый конец 90..180, правый 0..90 ---
+R9  | рез | Xa1+Ra | Y3 | Ra | 90 | 180
+R10 | рез | Xb1-Ra | Y3 | Ra | 0  | 90
+R11 | рез | Xa2+Ra | Y3 | Ra | 90 | 180
+R12 | рез | Xb2-Ra | Y3 | Ra | 0  | 90
+R13 | рез | Xa3+Ra | Y3 | Ra*ONE | 90 | 180
+R14 | рез | Xb3-Ra | Y3 | Ra*ONE | 0  | 90
+R15 | рез | Xa4+Ra | Y3 | Ra*ONE | 90 | 180
+R16 | рез | Xb4-Ra | Y3 | Ra*ONE | 0  | 90
+
+# --- заклёпки: соосны пазам, по две на паз (подгиб и тело) ---
+R17 | рез | Xh11 | Yh1 | Rv | 0 | 360
+R18 | рез | Xh12 | Yh1 | Rv | 0 | 360
+R19 | рез | Xh21 | Yh1 | Rv*ONE | 0 | 360
+R20 | рез | Xh22 | Yh1 | Rv*ONE | 0 | 360
+R21 | рез | Xh11 | Yh2 | Rv | 0 | 360
+R22 | рез | Xh12 | Yh2 | Rv | 0 | 360
+R23 | рез | Xh21 | Yh2 | Rv*ONE | 0 | 360
+R24 | рез | Xh22 | Yh2 | Rv*ONE | 0 | 360
+
+[ПРОВЕРКИ]
+# имя | условие (больше нуля = истина) | сообщение | стоп
+Дно сходится | 1+A-2*Bq-3 | пакет не строится: при ширине {A} мм и глубине {B} мм диагонали дна сходятся ближе 3 мм даже после подрезки до {Bq_floor} мм — нужно A не меньше {Amin} | стоп
+Дно подрезано | 1-NEED_TRIM | дно подрезано под зазор 3 мм: донный клапан {Bq_full} -> {Bq} мм | инфо
+Ленты влезают | 1+LENTA*(A-68-2*U) | лента {U} мм не влезает в пакет {A} мм — нужно не менее 68 плюс 2U
+`;
+
+/* Модель пачки-пачки. Правь здесь — приложение пересобирать не нужно. */
+
+const MODEL_PACHKA = `
+# Made by Yauheni Padloukin @evgenpdl & Claude Haiku 5.5
+# Author: Yauheni Padloukin @evgenpdl | Co-author: Claude Haiku 5.5# ============================================================
+#  ПАЧКА v12
+# ============================================================
+#
+#  ВХОДНЫЕ ПАРАМЕТРЫ помечаются «?». Они появляются полями на
+#  странице, рядом видно подсказки — нажми и подставится само.
+#
+#    A    ширина
+#    B    глубина
+#    H    высота
+#    D    клапан склейки        картон 15 / гофра 20
+#    E    глубина клапана крышки
+#    Z    замок                 плечо пылевого, на крышке Z+3
+#    Zp   усиление замка        прибавляется к Z на НИЖНИХ клапанах
+#    KL   новый вход           пока ни на что не влияет
+#    ZF   новый вход           пока ни на что не влияет
+#    KLR  = KL + ZF*COS(45)            внутренняя расчётная величина
+#    HD_V высота пылевого клапана ВЕРХ    (4 варианта в подсказках)
+#    HD_N высота пылевого клапана НИЗ     (4 варианта в подсказках)
+#
+#  ПРЕДЕЛ КЛАПАНОВ
+#    Клапан не может быть выше A-3. Если введешь больше — подрежется
+#    автоматически, построение не останавливается.
+#      HD_VF / HD_NF  — фактическая высота после подрезки
+#      CUT_V / CUT_N  — на сколько подрезано (0, если в пределах)
+#    MAT  материал              0 картон / 1 гофра
+#
+#  ОТ МАТЕРИАЛА ЗАВИСИТ
+#    t      допуск              0,5 / 1,5
+#    RARC   радиус дуги         1 / 1,5
+#    OFF3   отступ 3 мм         3 / 0  — на гофре пропадает,
+#                               там дуга Ø3 = R1,5
+#    OFF5   отступ 5 мм         константа
+# ============================================================
+#
+#  ФУНКЦИИ
+#    ROUND(x) ROUND(x,шаг)  CEIL(x)  FLOOR(x)  ABS(x)  SQRT(x)  MIN(a,b)  MAX(a,b)
+#    COS(угол)  SIN(угол)  ATAN2(y,x)   — углы в градусах
+#    DIST(x1,y1,x2,y2)      — расстояние между точками
+#    ANGLE(x1,y1,x2,y2)     — угол направления от точки 1 к точке 2, 0..360
+#
+#  КАСАТЕЛЬНАЯ К ОКРУЖНОСТИ
+#    Аргументы: (Xc, Yc, R, Px, Py, сторона)
+#      Xc,Yc,R — направляющая окружность
+#      Px,Py   — внешняя точка, из которой идёт касательная
+#      сторона — 1 или -1: какая из двух касательных (по умолчанию 1)
+#
+#    TANX(...)    X точки касания
+#    TANY(...)    Y точки касания
+#    TANANG(...)  угол точки касания от центра, 0..360 — подставляй в дугу
+#    TLEN(...)    длина касательной от внешней точки до касания
+#
+#  ССЫЛКИ НА ТОЧКИ
+#    @L1.S.x  @L1.E.x  — X начала и конца линии L1
+#    @L1.S.y  @L1.E.y  — Y начала и конца
+#    @L1.C.x  @L1.C.y  — центр дуги
+#    @R1.R             — радиус окружности R1
+#
+#  ПРИМЕР: касательная и дуга от точки касания
+#    TX = TANX(CX, CY, CR, PX, PY, 1)
+#    TY = TANY(CX, CY, CR, PX, PY, 1)
+#    TA = TANANG(CX, CY, CR, PX, PY, 1)
+#    L2 | рез | TX | TY | PX | PY          касательная
+#    R2 | рез | CX | CY | CR | TA | 160   дуга от касания до 160°
+#
+#  УСЛОВИЕ У ЛИНИИ И ОКРУЖНОСТИ
+#    Последнее поле — необязательное условие. Ноль — не рисовать,
+#    не ноль — рисовать. Пусто — рисовать всегда.
+#
+#      L1 | биговка | X1 | -HM | X1 | HM | MAT=0     только картон
+#      L2 | рез     | X0 | HM  | X1 | HM  | MAT=1     только гофра
+#      R2 | рез     | CX | CY | CR | TA | 160 | MAT=1
+#
+#    Сравнения:  =  и  <>  (не равно). Результат 1 или 0.
+#    Можно и просто число: MAT, или выражение: MAT<>1.
+#    Условие — выключатель: линия либо есть, либо её нет.
+# ============================================================
+
+[СЕТКА]
+
+X29B = X3+Z+1.5
+CXR = X7+(ROUND((X29*X29+(Y5-Y3)*(Y5-Y3)-X7*X7)/(2*(X29-X7))-X7))
+DXR = SQRT((ROUND((X29*X29+(Y5-Y3)*(Y5-Y3)-X7*X7)/(2*(X29-X7))-X7))*(ROUND((X29*X29+(Y5-Y3)*(Y5-Y3)-X7*X7)/(2*(X29-X7))-X7))-(Y5-Y3)*(Y5-Y3))
+CXB = X9+(ROUND((X29B*X29B+(Y15-Y13)*(Y15-Y13)-X9*X9)/(2*(X29B-X9))-X9))
+DXB = SQRT((ROUND((X29B*X29B+(Y15-Y13)*(Y15-Y13)-X9*X9)/(2*(X29B-X9))-X9))*(ROUND((X29B*X29B+(Y15-Y13)*(Y15-Y13)-X9*X9)/(2*(X29B-X9))-X9))-(Y15-Y13)*(Y15-Y13))
+
+# --- входы ---
+A    = ?       # =100  ; длина
+B    = ?       # =100  ; ширина
+H    = ?       # =200  ; высота
+E    = ?       # =20  ; высота клапана крышки
+Z    = ?       # =10 ; длина замка
+Zp   = ?       # =5 ; усиление нижних замков
+KL   = ?       # =5 ; глубина отступа пылевого клапана
+ZF   = ?       # =5 ; глубина замка
+MAT  = ?       # =0 ; картон @MAT=0 & D=D0 ; гофра @MAT=1 & D=D1
+D    = ?       # =D0 ; 15 @D0 ; 20 @D1
+HD_V = ?       # =HD_AVG ; Среднее @HD_AVG ; Максимальное @HD_MAX ; Оптимальное @HD_OPT ; Усиленное @HD_STR
+HD_N = ?       # =HD_AVG ; Среднее @HD_AVG ; Максимальное @HD_MAX ; Оптимальное @HD_OPT ; Усиленное @HD_STR
+
+# --- от материала ---
+t    = 0.5+MAT*1.0
+RARC = 1+MAT*0.5
+OFF3 = 3*(1-MAT)
+OFF5 = 5
+
+# --- от KL и ZF ---
+KLR  = KL+ZF*COS(45)                          # внутренняя расчётная величина
+
+# --- базовые значения ---
+D0 = 15
+D1 = 20
+
+# --- производные ---
+HM = H/2
+
+# жёсткий предел высоты клапана: ширина заготовки минус 3 мм
+# фактическая высота = MIN(заданная, предел) — не останавливаем, а подрезаем
+HD_LIM = A-3
+HD_VF  = MIN(HD_V, HD_LIM)
+HD_NF  = MIN(HD_N, HD_LIM)
+CUT_V  = MAX(0, HD_V-HD_LIM)       # насколько подрезан верх
+CUT_N  = MAX(0, HD_N-HD_LIM)       # насколько подрезан низ
+
+# --- четыре варианта высоты пылевого клапана ---
+HD_AVG = A/2-1                       # среднее
+HD_MAX = B+E-t                       # максимальное
+HD_OPT = B                           # оптимальное
+
+# усиленное: A*0.75 или B*0.75, округление до 0,5,
+# берётся то, что попадает в A/2 < HD < B+E-t
+HD_STR_A = ROUND(A*0.75, 0.5)
+HD_STR_B = ROUND(B*0.75, 0.5)
+OK_A = MIN(1, MAX(0, (HD_STR_A-A/2)*1000)) * MIN(1, MAX(0, (B+E-t-HD_STR_A)*1000))
+OK_B = MIN(1, MAX(0, (HD_STR_B-A/2)*1000)) * MIN(1, MAX(0, (B+E-t-HD_STR_B)*1000))
+HD_STR = HD_STR_A*OK_A + HD_STR_B*OK_B*(1-OK_A) + HD_OPT*(1-OK_B)*(1-OK_A)
+
+# --- оси X: панели B-t | A | B | A | D ---
+X0 = 0
+X1 = B-t
+X2 = X1+A
+X3 = X2+B
+X4 = X3+A
+X5 = X4+D
+
+X6 = X4+6                            # ёжик, 6 мм от биговки
+
+X7 = X1+t                            # допуск крышки
+X8 = X2-t                            # допуск крышки
+X9 = X3+t                            # допуск крышки
+X10 = X4-t                            # допуск крышки
+
+X11 = X1-t                            # допуск клапана
+X12 = X2+t                            # допуск клапана
+X13 = X3-t                            # допуск клапана
+
+X21 = 3
+X22 = 5
+X23 = X1-3
+X24 = X1-5
+X25 = X2+3
+X26 = X2+5
+X27 = X3-3
+X28 = X3-5
+X29 = X1+Z+1.5
+
+
+# --- оси Y ---
+Y0 = 0                               # ось симметрии
+Y1 = HM                              # линия верха
+Y2 = HM+t                              # верхняя биговка крышки
+Y3 = HM+B                              # верх крышки
+Y4 = Y3-t                              # нижняя биговка крышки
+Y5 = Y4+E
+Y6 = Y1+HD_VF                      # подрезано пределом A-3
+
+Y11 = -HM                              # линия низа
+Y12 = -HM-t                             # верхняя биговка крышки
+Y13 = -HM-B                              # верх крышки
+Y14 = Y13+t                              # нижняя биговка крышки
+Y15 = Y14-E
+Y16 = Y11-HD_NF                     # подрезано пределом A-3
+[ЛИНИИ]
+# --- ёжик на клапане склейки ---
+L0  | ежик| X6 | Y11+6 | X6 | Y1-6
+# --- замки клапанов ---
+L1  | рез| X0 | Y1 | X0 | Y1+Z
+L2  | рез| X13 | Y1 | X13 | Y1+Z
+L3  | рез| X11 | Y11 | X11 | Y11-Z-Zp
+L4  | рез| X12 | Y11 | X12 | Y11-Z-Zp
+L5  | рез| X11 | Y11 | X12 | Y11
+L6  | рез| X13 | Y1 | X4 | Y1
+L37 | рез| X0 | Y1+Z | X0+ZF*COS(45) | Y1+Z+ZF*SIN(45)
+L38 | рез| X0+ZF*COS(45) | Y1+Z+ZF*SIN(45) | X0+KLR | Y6
+L39 | рез| X13 | Y1+Z | X13-ZF*COS(45) | Y1+Z+ZF*SIN(45)
+L40 | рез| X13-ZF*COS(45) | Y1+Z+ZF*SIN(45) | X13-KLR | Y6
+L41 | рез| X11 | Y11-Z-Zp | X11-ZF*COS(45) | Y11-Z-ZF*SIN(45)-Zp
+L42 | рез| X11-ZF*COS(45) | Y11-Z-ZF*SIN(45)-Zp | X11-KLR | Y16
+L43 | рез| X12 | Y11-Z-Zp | X12+ZF*COS(45) | Y11-Z-ZF*SIN(45)-Zp
+L44 | рез| X12+ZF*COS(45) | Y11-Z-ZF*SIN(45)-Zp | X12+KLR | Y16
+# --- Клапан склейки ---
+L7  | рез| X4 | Y1 | X5 | Y1-5
+L8  | рез| X5 | Y1-5 | X5 | Y11+5
+L9  | рез| X5 | Y11+5 | X4 | Y11
+# --- Верхняя крышка ---
+L10  | рез| X1 | Y2 | X1 | Y3
+L11  | рез| X2 | Y2 | X2 | Y3
+L12  | рез| X1 | Y3 | X1+(Z+3) | Y3
+L13  | рез| X2 | Y3 | X2-(Z+3) | Y3
+L14  | рез| X1+(Z+3) | Y3 | X1+(Z+3) | Y3-3
+L15  | рез| X2-(Z+3) | Y3 | X2-(Z+3) | Y3-3
+# --- Нижняя крышка ---
+L16  | рез| X4 | Y11 | X4 | Y13
+L22 | рез | X26 | Y6 | X13-KLR | Y6
+L23 | рез | X24 | Y6 | X0+KLR | Y6
+L24 | рез | X11-KLR | Y16 | X22 | Y16
+L25 | рез | X12+KLR | Y16 | X28 | Y16
+L26 | рез | X4 | Y13 | X4-(Z+3+Zp)| Y13
+L27 | рез | X4-(Z+3+Zp)| Y13 | X4-(Z+3+Zp)| Y13+3
+L28 | рез | X3 | Y12 | X3 | Y13
+L29 | рез | X3 | Y13 | X9+(Z+3)+Zp | Y13
+L30 | рез | X9+(Z+3)+Zp | Y13 | X9+(Z+3)+Zp | Y13+3
+L31 | рез | X0 | Y1 | X0 | Y11
+L32 | биговка | X1 | Y2 | X1 | Y11
+L33 | биговка | X2 | Y11 | X2 | Y2
+L34 | биговка | X4 | Y1 | X4 | Y11
+L35 | биговка | X4 | Y12 | X3 | Y12
+L36 | биговка | X1 | Y2 | X2 | Y2
+L45 | биговка | X1+Z+3 | Y4 | X2-Z-3 | Y4
+L46 | биговка | X9+Z+3+Zp | Y14 | X4-Z-3-Zp | Y14
+L47 | биговка | X3 | Y1 | X3 | Y12
+L50 | рез | CXR-DXR | Y5 | X8-(ROUND((X29*X29+(Y5-Y3)*(Y5-Y3)-X7*X7)/(2*(X29-X7))-X7))+DXR | Y5
+L51 | рез | CXB-DXB | Y15 | X10-(ROUND((X29B*X29B+(Y15-Y13)*(Y15-Y13)-X9*X9)/(2*(X29B-X9))-X9))+DXB | Y15
+
+# --- соединение для картона ---
+# --- 1 ---
+L100 | рез | X23 | Y1+3 | TANX(X1-1, Y2, 1, X23, Y1+3, 1) | TANY(X1-1, Y2, 1, X23, Y1+3, 1) | MAT=0
+L101 | рез | X24 | Y6 | X23 | Y1+3| MAT=0
+L102 | биговка | X0 | Y1 | X1-1 - SQRT(1*1 - (Y1-Y2)*(Y1-Y2)) | Y1| MAT=0
+# --- 2 ---
+L103 | рез | X25 | Y1+3 | TANX(X2+1, Y2, 1, X25, Y1+3, -1) | TANY(X2+1, Y2, 1, X25, Y1+3, -1)| MAT=0
+L104 | рез | X25 | Y1+3 | X26 | Y6| MAT=0
+L105 | биговка | X13 | Y1 | X2+1 + SQRT(1*1 - (Y1-Y2)*(Y1-Y2)) | Y1| MAT=0
+# --- 3 ---
+L106 | рез | X27 | Y11-3 | TANX(X3-1, Y12, 1, X27, Y11-3, -1) | TANY(X3-1, Y12, 1, X27, Y11-3, -1)| MAT=0
+L107 | рез | X27 | Y11-3 | X28 | Y16| MAT=0
+L108 | биговка | X12 | Y11 | X3-1 - SQRT(1*1 - (Y1-Y2)*(Y1-Y2)) | Y11| MAT=0
+# --- 4 ---
+L109 | рез| X0 | Y11 | X0+4*COS(45) | Y11-4*SIN(45)| 
+L110 | рез| X0+4*COS(45) | Y11-4*SIN(45) | X22 | Y16| 
+L111 | биговка | X0 | Y11 | X11 | Y11| 
+# --- соединение для гофры---
+# --- 1 ---
+L201 | рез | X24 | Y6 | TANX(X1-1.5, Y2, 1.5, X23, Y2+3, 1) | TANY(X1-1.5, Y2, 1.5, X23, Y2+3, 1) | MAT=1
+L202 | биговка | X0 | Y1 | X1-1.5 - SQRT(1.5*1.5 - (Y1-Y2)*(Y1-Y2)) | Y1| MAT=1
+# --- 2 ---
+L203 | рез | X26 | Y6 | TANX(X2+1.5, Y2, 1.5, X25, Y2+3, -1) | TANY(X2+1.5, Y2, 1.5, X25, Y2+3, -1) | MAT=1
+L204 | биговка | X13 | Y1 | X2+1.5 - SQRT(1.5*1.5 - (Y1-Y2)*(Y1-Y2)) | Y1| MAT=1
+# --- 3 ---
+L205 | рез | X28 | Y16 | TANX(X3-1.5, Y12, 1.5, X28, Y16, -1) | TANY(X3-1.5, Y12, 1.5, X28, Y16, -1) | MAT=1
+L206 | биговка | X12 | Y11 | X13 - SQRT(1.5*1.5 - (Y1-Y2)*(Y1-Y2)) | Y11| MAT=1
+# --- 4 ---
+
+[ОКРУЖНОСТИ]
+R50 | рез | CXR | Y3 | ROUND((X29*X29+(Y5-Y3)*(Y5-Y3)-X7*X7)/(2*(X29-X7))-X7) | ATAN2(Y5-Y3, -DXR) | 180
+R51 | рез | X8-(ROUND((X29*X29+(Y5-Y3)*(Y5-Y3)-X7*X7)/(2*(X29-X7))-X7)) | Y3 | ROUND((X29*X29+(Y5-Y3)*(Y5-Y3)-X7*X7)/(2*(X29-X7))-X7) | 0 | 180-ATAN2(Y5-Y3, -DXR)
+R52 | рез | CXB | Y13 | ROUND((X29B*X29B+(Y15-Y13)*(Y15-Y13)-X9*X9)/(2*(X29B-X9))-X9) | 180 | 360-ATAN2(Y13-Y15, -DXB)
+R53 | рез | X10-(ROUND((X29B*X29B+(Y15-Y13)*(Y15-Y13)-X9*X9)/(2*(X29B-X9))-X9)) | Y13 | ROUND((X29B*X29B+(Y15-Y13)*(Y15-Y13)-X9*X9)/(2*(X29B-X9))-X9) | 180+ATAN2(Y13-Y15, -DXB) | 360
+# --- соединение для картона ---
+# --- 1 ---
+R100 | рез | X1-1 | Y2 | 1 | TANANG(X1-1, Y2, 1, X23, Y1+3, 1) | 360 | MAT=0 
+# --- 2 ---
+R101 | рез | X2+1 | Y2 | 1 | 180 | TANANG(X2+1, Y2, 1, X25, Y1+3, -1) | MAT=0
+# --- 3 ---
+R102 | рез | X3-1 | Y12 | 1 | 0 | TANANG(X3-1, Y12, 1, X27, Y11-3, -1) | MAT=0
+# --- 4 ---
+# --- соединение для гофры---
+# --- 1 ---
+R201 | рез | X1-1.5 | Y2 | 1.5 | TANANG(X1-1.5, Y2, 1.5, X23, Y2+3, 1) | 360 | MAT=1 
+# --- 2 ---
+R202 | рез | X2+1.5 | Y2 | 1.5 | 180 | TANANG(X2+1.5, Y2, 1.5, X25, Y2+3, -1) | MAT=1 
+# --- 3 ---
+R203 | рез | X3-1.5 | Y12 | 1.5 | 0 | TANANG(X3-1.5, Y12, 1.5, X28, Y16, -1) | MAT=1
+# --- 4 ---
+[ПРОВЕРКИ]
+# имя | условие (больше нуля = выполнено) | сообщение | стоп
+Ширина больше нуля     | A-1              | A должна быть больше 1 мм | 1
+Глубина больше допуска | B-t-1            | B должна быть больше допуска | 1
+# предел A-3 не проверяется — он применяется принудительно через HD_VF / HD_NF
+# эти проверки смотрят на фактическую высоту, то есть уже подрезанную
+
+Верхний клапан не выше крышки | B+E-t-HD_VF | верхний пылевой клапан выше клапана крышки | 0
+Нижний клапан не выше крышки  | B+E-t-HD_NF | нижний пылевой клапан выше клапана крышки | 0
+`;
+
+const MODEL_KRYSHA = `# ============================================================
+#  КРЫШКА-ДНО — шаблон (пустой контур)
+#  Made by Yauheni Padloukin @evgenpdl & Claude Haiku 5.5
+# ============================================================
+#  Входы (панель справа):
+#    A    — длина
+#    B    — ширина
+#    HD   — высота дна
+#    HK   — высота крышки
+#    ED   — ширина клапана дна
+#    EK   — ширина клапана крышки
+#    TYPD / TYPK — переключатель «дно / крышка» (кнопка в шапке):
+#      дно:    TYPD = 1, TYPK = 0
+#      крышка: TYPD = 0, TYPK = 1
+#  Недопустимые значения страница сама ставит в ближайшее допустимое.
+#  Оси зеркала X=0 и Y=0: рисуется одна четверть, остальное размножается.
+#  Скругление R1 между L19 и L20: радиус RD (дно) или RK (крышка), целое;
+#  линии продлеваются до касания;
+#  L21 заканчивается на дуге.
+# ============================================================
+
+[СЕТКА]
+A    = ?       # =100 ; длина
+B    = ?       # =60  ; ширина
+HD   = ?       # =50  ; высота дна
+HK   = ?       # =30  ; высота крышки
+ED   = ?       # =20  ; ширина клапана дна
+EK   = ?       # =20  ; ширина клапана крышки
+TYPD = ?       # =1   ; 1 — дно, 0 — крышка
+TYPK = ?       # =0   ; 0 — дно, 1 — крышка
+
+MIRROR_X = 0
+MIRROR_Y = 0
+
+# --- скругление между L19 и L20 ---
+# RD — радиус для дна, RK — радиус для крышки (целые). Рабочий выбирается по TYPD/TYPK.
+RD   = ?       # =10 ; радиус скругления дна, целое
+RK   = ?       # =10 ; радиус скругления крышки, целое
+RFK  = ROUND(RD*TYPD+RK*TYPK)
+FR   = RFK
+FP2X = X12+1.5
+FP2Y = Y11+6
+FQ2X = X1-6
+FQ2Y = Y21-1.5
+FLP  = SQRT((FP2X-X12)*(FP2X-X12)+(FP2Y-Y11)*(FP2Y-Y11))
+FLQ  = SQRT((FQ2X-X1)*(FQ2X-X1)+(FQ2Y-Y21)*(FQ2Y-Y21))
+FT   = ((X1-X12)*(FQ2Y-Y21)-(Y21-Y11)*(FQ2X-X1))/((FP2X-X12)*(FQ2Y-Y21)-(FP2Y-Y11)*(FQ2X-X1))
+FVX  = X12+FT*(FP2X-X12)
+FVY  = Y11+FT*(FP2Y-Y11)
+FUX  = -(FP2X-X12)/FLP
+FUY  = -(FP2Y-Y11)/FLP
+FWX  = -(FQ2X-X1)/FLQ
+FWY  = -(FQ2Y-Y21)/FLQ
+FDOT = FUX*FWX+FUY*FWY
+FCRS = ABS(FUX*FWY-FUY*FWX)
+FD   = FR*(1+FDOT)/FCRS
+FSH  = SQRT((1-FDOT)/2)
+FBX  = FUX+FWX
+FBY  = FUY+FWY
+FBN  = SQRT(FBX*FBX+FBY*FBY)
+FCX  = FVX+FR/FSH*FBX/FBN
+FCY  = FVY+FR/FSH*FBY/FBN
+FT1X = FVX+FD*FUX
+FT1Y = FVY+FD*FUY
+FT2X = FVX+FD*FWX
+FT2Y = FVY+FD*FWY
+FA1  = ATAN2(FT1Y-FCY, FT1X-FCX)
+FA2  = ATAN2(FT2Y-FCY, FT2X-FCX)
+FSX  = X1-FCX
+FSY  = Y11-FCY
+FB2  = 2*(-20*FSX+20*FSY)
+FC2  = FSX*FSX+FSY*FSY-FR*FR
+FK   = (-FB2+SQRT(FB2*FB2-3200*FC2))/1600
+FKX  = X1-20*FK
+FKY  = Y11+20*FK
+HDK=(HD*TYPD+HK*TYPK)
+EDK=(ED*TYPD+EK*TYPK)
+
+# --- оси X: панели B-t | A | B | A | D ---
+X0 = 0
+X1 = X0-B/2-2*TYPK
+X2=X1-HDK-0.5
+X3= X2-HDK/2
+X4=X2-HDK
+X5=X4-EDK
+
+X11=X1+1.5
+X12=X2+0.5
+X13=X1+EDK
+# --- оси Y ---
+Y0 = 0                               
+Y1 = Y0+A/2+0.5+2*TYPK
+Y2=Y1+HDK+0.5
+Y3=Y2+HDK/2
+Y4=Y2+HDK 
+Y5=Y4+EDK   
+
+Y11 =   Y1-0.5
+Y12 =   Y1-2
+Y13 =   Y12-EDK
+Y21 =   Y2-1
+[ЛИНИИ]
+
+L1 | биговка | X1 | Y0 | X1 | Y21
+L2 | биговка | X0 | Y2 | X11 | Y2
+L3 | биговка | X0 | Y1 | X1 | Y1
+L4 | рез | X1 | Y21 | X11 | Y2
+L5 | рез | X11 | Y2 | X11 | Y3
+L6 | рез | X11 | Y3 | X11-3 | Y3
+L7 | рез | X1 | Y3 | X1 | Y4
+L8 | рез | X1 | Y4 | X13 | Y5
+L9 | рез | X13 | Y5 | X0 | Y5
+L10 | перфорация | X1 | Y4 | X0 | Y4
+L11 | биговка | X1 | Y11 | X12 | Y11
+L12 | рез | X12 | Y11 | X3 | Y11
+L13 | рез | X3 | Y12 | X3 | Y12+3
+L14 | рез | X3 | Y12 | X4 | Y12
+L15 | рез | X4 | Y12 | X5 | Y13
+L16 | рез | X5 | Y13 | X5 | Y0
+L17 | перфорация | X4 | Y0 | X4 | Y12
+L18 | биговка | X2 | Y0 | X2 | Y11
+L19 | рез | X12 | Y11 | FT1X | FT1Y
+L20 | рез | X1 | Y21 | FT2X | FT2Y
+L21 | перфорация | X1 | Y11 | FKX | FKY
+[ОКРУЖНОСТИ]
+R1 | рез | FCX | FCY | FR | FA2 | FA1
+
+[ПРОВЕРКИ]
+# имя | условие (больше нуля = истина) | сообщение | стоп
+Дно: HD меньше B | TYPD*(B-HD)+(1-TYPD) | при дне высота HD={HD} должна быть меньше ширины B={B} | стоп
+Крышка: HK меньше B+4 | TYPK*(B+4-HK)+(1-TYPK) | при крышке высота HK={HK} должна быть меньше B+4={B} | стоп
+Ширина меньше длины | A-B | ширина B={B} должна быть меньше длины A={A} | стоп
+`;
+
+/* Виды упаковки. Список выводится в выпадающий список — новые типы
+   добавляются строкой сюда, интерфейс подстроится сам. */
+const MODEL_PENAL = `# ============================================================
+#  ПЕНАЛ / ОБЕЧАЙКА — тестовая модель
+#  Made by Yauheni Padloukin @evgenpdl & Claude Haiku 5.5
+# ============================================================
+#  Два блока в одной модели. Переключатель «Пенал / Обечайка» на странице
+#  оставляет только свой блок (строки #@ПЕНАЛ ... #@/ПЕНАЛ и #@ОБЕЧАЙКА ... #@/ОБЕЧАЙКА).
+#  Отзеркаливание (MIRROR_X, MIRROR_Y) есть только в блоке ПЕНАЛ.
+#  TYPBIGPERF: 1 — биговка, 0 — перфорация (кнопка на странице).
+#  Размеры A, B, H, E общие для обоих блоков.
+#  Контуры блоков сейчас тестовые — заменить на настоящие.
+# ============================================================
+
+[СЕТКА]
+A          = ?    # =100 ; длина
+B          = ?    # =100 ; ширина
+H          = ?    # =50  ; высота дна
+E          = ?    # =10  ; ширина борта
+TYPBIGPERF = ?    # =1   ; 1 — биговка, 0 — перфорация
+SHUB       = ?    # =0   ; флаг шуббер: 1 — вкл, 0 — выкл
+HOLES      = ?    # =0   ; отверстия в дне: 1 — есть, 0 — нет (только при SHUB=1)
+ROT        = ?    # =8   ; радиус отверстий, не меньше 8
+EXTRA_HOLE = ?    # =0   ; доп. отверстие: 1 — есть, 0 — нет (только при SHUB=1)
+#@ПЕНАЛ
+MIRROR_X = 0
+MIRROR_Y = 0
+LENTA      = ?    # =0   ; лента: 1 — вкл, 0 — выкл
+LENTA_MID  = ?    # =1   ; 1 — лента по середине, 0 — по низу
+WLENTA     = ?    # =20  ; ширина ленты, не меньше 15
+#@/ПЕНАЛ
+
+#@ПЕНАЛ
+# --- оси X ---
+X0 = 0
+X1 = X0-B/2-E
+X2=X1-H+0.5
+X3=X2-E
+X4=X3-H
+X5=X4-E+1
+
+X11=X1+E
+X12=X11-2.5
+X13=X1-E
+X14=X11+0.5
+
+X21 = X2+1
+
+
+# --- оси Y ---
+Y0 = 0
+Y1 = A/2+E
+Y2 = Y1+H+1
+Y3 = Y2+E
+Y4=Y3+H+0.5
+Y5 = Y4+E-1
+
+Y11 = Y1-0.5
+Y12 = Y1+3
+Y13 = Y1-E+0.25
+Y31 = Y3+3
+Y41=Y4-2.5
+
+Y67=Y11+(B/2+E)-1
+
+# --- отверстие под ленту ---
+YLC = Y1+LENTA_MID*(H+1)/2
+XL1 = X0-(WLENTA-2)/2
+XL2 = X0+(WLENTA-2)/2
+
+ZK1 = MIN(1,MAX(0,CEIL((Y2-Y67-0.0005)*1000)))
+ZK2 = 1-MIN(1,ABS(Y67-Y2)*1000000)
+ZK3 = MIN(1,MAX(0,CEIL((Y67-Y2)*1000)))*MIN(1,MAX(0,CEIL((Y2+E-Y67+0.0005)*1000)))
+ZK4 = MIN(1,MAX(0,CEIL((Y67-Y2-E)*1000)))
+PX = X1-(Y67-Y2)
+ZKP = MIN(1,MAX(0,CEIL((PX-X21-10+0.0005)*1000)))
+ZK5 = ZK4*ZKP
+ZK7 = ZK4*(1-ZKP)
+RF = MAX(4,CEIL((Y2+X1-X21-Y67)*0.70710678))
+YT = Y2+X1-X21-2.41421356*RF
+XT2 = X21+RF+0.70710678*RF
+YT2 = YT+0.70710678*RF
+#@/ПЕНАЛ
+
+#@ОБЕЧАЙКА
+# --- оси X ---
+X0=0
+X1=X0+H+1.5
+X2=X1+B+2*E+1.5
+X3=X2+H+2
+X4=X3+B+2*E+1.5
+X5=X4+15
+X6=X4+6
+# --- оси Y ---
+Y0=0
+Y1=Y0+5
+Y2=Y0+A+2*E+2*SHUB
+Y3=Y2-5
+Y4 = Y2-6
+Y5 = Y0+6
+Y6 = Y0-H-2
+# центры отверстий задаёте сами
+HX1 = X0
+HY1 = Y0
+HX2 = X0
+HY2 = Y0
+
+#@/ОБЕЧАЙКА
+
+
+[ЛИНИИ]
+#@ПЕНАЛ
+L8 | рез | X0 | Y5 | X14 | Y5
+L9 | рез | X14 | Y5 | X14 | Y4
+
+L11 | рез | X12 | Y41 | X12 | Y3+3.5
+L12 | рез | X11 | Y3 | X11 | Y3+1
+L13 | рез | X11 | Y3 | X1 | Y2
+L14 | рез | X1 | Y2 | X1 | Y11
+L15 | рез | X2 | Y11 | X21 | Y12
+L16 | рез | X2 | Y11 | X5 | Y11
+L17 | рез | X5 | Y11 | X5 | Y0
+L18 | рез | X21 | Y12 | X21 | Y67+ZK7*(YT-Y67)-ZK3*(Y67-Y2)
+L190 | рез | X21 | Y67 | X13 | Y67 | ZK1
+L191 | рез | X13 | Y67 | X13+E | Y67-E | ZK1
+L192 | рез | X21 | Y67 | X1 | Y67 | ZK2
+L193 | рез | X21 | Y67-ZK3*(Y67-Y2) | X1 | Y2 | ZK3
+L196 | рез | X21 | Y67 | PX | Y67 | ZK5
+L195 | рез | X1 | Y2 | PX+ZK7*(XT2-PX) | Y67+ZK7*(YT2-Y67) | ZK4
+
+L21 | рез | X4 | Y11 | X4 | Y13
+L22 | рез | X4 | Y13 | X3 | Y13
+L23 | биговка | X4 | Y0 | X4 | Y13 | TYPBIGPERF
+L83 | перфорация| X4 | Y0 | X4 | Y13 | 1-TYPBIGPERF
+L24 | биговка | X3 | Y13 | X3 | Y0
+L25 | биговка | X2 | Y11 | X2 | Y0
+L26 | биговка | X2 | Y11 | X1 | Y11
+L27 | биговка | X1 | Y11 | X1 | Y0
+
+L28 | биговка | X1 | Y1 | X0 | Y1 |1-LENTA
+L726 | биговка | X1 | Y1 | X0 | Y1 |LENTA*LENTA_MID
+L728 | биговка | X1 | Y1 | X0-(WLENTA+1)/2 | Y1 |LENTA*(1-LENTA_MID)
+L729 | биговка | X0-(WLENTA+1)/2 | -Y1 | X0+(WLENTA+1)/2 | -Y1 | LENTA*(1-LENTA_MID) | 1
+
+L29 | биговка | X1 | Y2 | X0 | Y2
+L30 | биговка | X11 | Y3 | X0 | Y3
+L31 | биговка | X14 | Y4 | X0 | Y4 | TYPBIGPERF
+L84 | перфорация| X14 | Y4 | X0 | Y4 | 1-TYPBIGPERF
+L96 | рез | X11 | Y4 | X14 | Y4
+
+# --- отверстие под ленту: (WLENTA+1) x 3, концы скруглены R1.5 ---
+# --- последнее поле = 1: не зеркалить (отверстие в центре, копии не нужны) ---
+L210 | рез | XL1 | YLC+1.5 | XL2 | YLC+1.5 | LENTA | 1
+L211 | рез | XL1 | YLC-1.5 | XL2 | YLC-1.5 | LENTA | 1
+
+#@/ПЕНАЛ
+
+#@ОБЕЧАЙКА
+L85 | рез | X0 | Y0 | X4 | Y0 | 1-SHUB
+L86 | рез | X0 | Y0 | X0 | Y2
+L87 | рез | X0 | Y2 | X4 | Y2
+L88 | рез | X4 | Y2 | X5 | Y4
+L89 | рез | X5 | Y4 | X5 | Y5
+L90 | рез | X5 | Y5 | X4 | Y0| 1-SHUB
+L91 | биговка | X1 | Y2 | X1 | Y0+1*SHUB
+L92 | биговка | X2 | Y0+1*SHUB | X2 | Y2
+L93 | биговка | X3 | Y2 | X3 | Y0+1*SHUB
+L94 | биговка | X4 | Y0 | X4 | Y2 | 1-SHUB
+L95 | ёжик | X6 | Y4 | X6 | Y5
+L100 | рез | X5 | Y5 | X4-1 | Y0 | SHUB
+
+L102 | рез | X0 | Y6 | X0 | Y0 | SHUB
+L103 | рез | X0 | Y6 | X1-1.5 | Y6 | SHUB
+L104 | рез | X1-1.5 | Y6 | X1-1.5 | Y0-0.5 | SHUB
+L105 | рез | X1+1.5 | Y6 | X1+1.5 | Y0-0.5 | SHUB
+L106 | рез | X2-1.5 | Y6 | X2-1.5 | Y0-0.5 | SHUB
+L107 | рез | X2+1.5 | Y6 | X2+1.5 | Y0-0.5 | SHUB
+L108 | рез | X3-1.5 | Y6 | X3-1.5 | Y0-0.5 | SHUB
+L109 | рез | X3+1.5 | Y6 | X3+1.5 | Y0-0.5 | SHUB
+L110 | рез | X4-1 | Y6 | X4-1 | Y0 | SHUB
+L197 | рез | X1+1.5 | Y6 | X2-1.5 | Y6| SHUB
+L198 | рез | X2+1.5 | Y6 | X3-1.5 | Y6| SHUB
+L199 | рез | X3+1.5 | Y6 | X4-1 | Y6| SHUB
+L200 | биговка | X4 | Y0+(Y5-Y0)/16 | X4 | Y2 | SHUB
+L201 | биговка | X0 | Y0 | X1-1.41421356 | Y0 | SHUB
+L202 | биговка | X1+1.41421356 | Y0 | X2-1.41421356 | Y0 | SHUB
+L203 | биговка | X2+1.41421356 | Y0 | X3-1.41421356 | Y0 | SHUB
+L204 | биговка | X3+1.41421356 | Y0 | X4-1 | Y0 | SHUB
+
+#@/ОБЕЧАЙКА
+
+[ОКРУЖНОСТИ]
+#@ПЕНАЛ
+R1 | рез | X14-0.5 | Y41 | 2.5 | 90 | 180
+R2 | рез | X11 | Y3+1+2.5 | 2.5 | 180 | 270
+R3 | рез | X21+RF | YT | RF | 45 | 180 | ZK7
+R7 | рез | XL1 | YLC | 1.5 | 90 | 270 | LENTA | 1
+R8 | рез | XL2 | YLC | 1.5 | 270 | 90 | LENTA | 1
+
+#@/ПЕНАЛ
+#@ОБЕЧАЙКА
+R4 | рез | X1 | Y0-0.5 | 1.5 | 0| 180| SHUB
+R5 | рез | X2 | Y0-0.5 | 1.5 | 0| 180| SHUB
+R6 | рез | X3 | Y0-0.5 | 1.5 | 0| 180| SHUB
+R10 | рез | X2+(X3-x2)/2 | HY1+10+ROT/2 | ROT/2 | 0 | 360 | HOLES
+R11 | рез | X2+(X3-x2)/2 | HY1+20+1.25*ROT | ROT/2 | 0 | 360 | EXTRA_HOLE*HOLES
+
+#@/ОБЕЧАЙКА
+[ПРОВЕРКИ]
+# имя | условие (больше нуля = истина) | сообщение | стоп
+Высота меньше ширины | B-H | высота дна H={H} должна быть меньше ширины B={B} | стоп
+Борт не меньше 8 | E-7.9999 | ширина борта E={E} должна быть не меньше 8 | стоп
+`;
+
+/* ============================================================
+   ПАЧКА-ЛХ — модель (клапаны, касательные переходы, скругления хвоста)
+   ============================================================ */
+const MODEL_PACHKA_LH = `
+# Made by Yauheni Padloukin @evgenpdl & Claude Haiku 5.5
+# Author: Yauheni Padloukin @evgenpdl | Co-author: Claude Haiku 5.5# ============================================================
+#  ПАЧКА-ЛХ  (тестовая модель)
+# ============================================================
+#
+#  ВХОДНЫЕ ПАРАМЕТРЫ помечаются «?». Они появляются полями на
+#  странице, рядом видно подсказки — нажми и подставится само.
+#
+#    A    ширина
+#    B    глубина
+#    H    высота
+#    D    клапан склейки        картон 15 / гофра 20
+#    E    глубина клапана крышки
+#    Z    замок                 плечо пылевого, на крышке Z+3
+#    KL   новый вход           пока ни на что не влияет
+#    ZF   новый вход           пока ни на что не влияет
+#    KLR  = KL + ZF*COS(45)            внутренняя расчётная величина
+#    HD_V высота пылевого клапана ВЕРХ    (4 варианта в подсказках)
+#    KD   глубина клапана             (кнопки «B/2» и «B/3»)
+#    SKRUGDK единый радиус скругления хвоста — 0 не скруглять,
+#             макс = min(ROUND(KD/2), ROUND((ROUND((X62-X60)/3)-2*(0.25+0.25*MAT))/2))
+#    TAIL_D хвост двойной: 1 — двойной, 0 — одинарный
+#
+#  ПРЕДЕЛ КЛАПАНОВ
+#    Клапан не может быть выше A-3. Если введешь больше — подрежется
+#    автоматически, построение не останавливается.
+#      CUT_V / CUT_N  — на сколько подрезано (0, если в пределах)
+#    MAT  материал              0 картон / 1 гофра
+#
+#  ОТ МАТЕРИАЛА ЗАВИСИТ
+#    t      допуск              0,5 / 1,5
+#    RARC   радиус дуги         1 / 1,5
+#    OFF3   отступ 3 мм         3 / 0  — на гофре пропадает,
+#                               там дуга Ø3 = R1,5
+#    OFF5   отступ 5 мм         константа
+# ============================================================
+#
+#  ФУНКЦИИ
+#    ROUND(x) ROUND(x,шаг)  CEIL(x)  FLOOR(x)  ABS(x)  SQRT(x)  MIN(a,b)  MAX(a,b)
+#    COS(угол)  SIN(угол)  ATAN2(y,x)   — углы в градусах
+#    DIST(x1,y1,x2,y2)      — расстояние между точками
+#    ANGLE(x1,y1,x2,y2)     — угол направления от точки 1 к точке 2, 0..360
+#
+#  КАСАТЕЛЬНАЯ К ОКРУЖНОСТИ
+#    Аргументы: (Xc, Yc, R, Px, Py, сторона)
+#      Xc,Yc,R — направляющая окружность
+#      Px,Py   — внешняя точка, из которой идёт касательная
+#      сторона — 1 или -1: какая из двух касательных (по умолчанию 1)
+#
+#    TANX(...)    X точки касания
+#    TANY(...)    Y точки касания
+#    TANANG(...)  угол точки касания от центра, 0..360 — подставляй в дугу
+#    TLEN(...)    длина касательной от внешней точки до касания
+#
+#  ССЫЛКИ НА ТОЧКИ
+#    @L1.S.x  @L1.E.x  — X начала и конца линии L1
+#    @L1.S.y  @L1.E.y  — Y начала и конца
+#    @L1.C.x  @L1.C.y  — центр дуги
+#    @R1.R             — радиус окружности R1
+#
+#  ПРИМЕР: касательная и дуга от точки касания
+#    TX = TANX(CX, CY, CR, PX, PY, 1)
+#    TY = TANY(CX, CY, CR, PX, PY, 1)
+#    TA = TANANG(CX, CY, CR, PX, PY, 1)
+#    L2 | рез | TX | TY | PX | PY          касательная
+#    R2 | рез | CX | CY | CR | TA | 160   дуга от касания до 160°
+#
+#  УСЛОВИЕ У ЛИНИИ И ОКРУЖНОСТИ
+#    Последнее поле — необязательное условие. Ноль — не рисовать,
+#    не ноль — рисовать. Пусто — рисовать всегда.
+#
+#      L1 | биговка | X1 | -HM | X1 | HM | MAT=0     только картон
+#      L2 | рез     | X0 | HM  | X1 | HM  | MAT=1     только гофра
+#      R2 | рез     | CX | CY | CR | TA | 160 | MAT=1
+#
+#    Сравнения:  =  и  <>  (не равно). Результат 1 или 0.
+#    Можно и просто число: MAT, или выражение: MAT<>1.
+#    Условие — выключатель: линия либо есть, либо её нет.
+# ============================================================
+
+[СЕТКА]
+
+CXR = X7+(ROUND((X29*X29+(Y5-Y3)*(Y5-Y3)-X7*X7)/(2*(X29-X7))-X7))
+DXR = SQRT((ROUND((X29*X29+(Y5-Y3)*(Y5-Y3)-X7*X7)/(2*(X29-X7))-X7))*(ROUND((X29*X29+(Y5-Y3)*(Y5-Y3)-X7*X7)/(2*(X29-X7))-X7))-(Y5-Y3)*(Y5-Y3))
+
+# --- входы ---
+
+A    = ?       # =100  ; длина
+D    = ?       # =D0 ; 15 @D0 ; 20 @D1
+B    = ?       # =100  ; ширина
+E    = ?       # =20  ; высота клапана крышки
+H    = ?       # =200  ; высота
+KL   = ?       # =5 ; глубина отступа пылевого клапана
+Z    = ?       # =10 ; длина замка
+ZF   = ?       # =5 ; глубина замка
+HD_V = ?       # =HD_AVG ; Среднее @HD_AVG ; Максимальное @HD_MAX ; Оптимальное @HD_OPT ; Усиленное @HD_STR
+KD     = ?      # =33 ; глубина клапана  ; Примерное B/2 @KD_B2 ; Примерное B/3 @KD_B3
+KDR     = ?      # =KDR_AVG ; Среднее @KDR_AVG ; Максимальное @KDR_MAX
+SKRUGDK = ?     # =2 ; радиус скругления хвоста; 0 — не скруглять; макс min(KD/2, треть свободной ширины) ; Без скругления @SKR0 ; Максимум @SKRMAX
+TAIL_D = ?      # =0 ; хвост: 0 — одинарный, 1 — двойной
+MAT  = ?       # =0 ; картон @MAT=0 & D=D0 ; гофра @MAT=1 & D=D1
+
+# --- от материала ---
+t    = 0.5+MAT*1.0
+RARC = 1+MAT*0.5
+OFF3 = 3*(1-MAT)
+OFF5 = 5
+
+# --- от KL и ZF ---
+KLR  = KL+ZF*COS(45)                          # внутренняя расчётная величина
+
+# --- базовые значения ---
+D0 = 15
+D1 = 20
+
+# --- производные ---
+HM = H/2
+
+# жёсткий предел высоты клапана: ширина заготовки минус 3 мм
+# фактическая высота = MIN(заданная, предел) — не останавливаем, а подрезаем
+HD_LIM = A-3
+HD_VF  = MIN(HD_V, HD_LIM)
+CUT_V  = MAX(0, HD_V-HD_LIM)       # насколько подрезан верх
+
+# --- четыре варианта высоты пылевого клапана ---
+HD_AVG = A/2-1                       # среднее
+HD_MAX = B+E-t                       # максимальное
+HD_OPT = B                           # оптимальное
+
+# --- варианты глубины клапана KD (кнопки «Примерное — B/2» и «B/3») ---
+KD_B2 = ROUND(B/2)                   # примерно половина ширины
+KD_B3 = ROUND(B/3)                   # примерно треть ширины
+
+KDR_AVG = MIN(0.75*B-(ROUND(B/2)+(0.25+0.25*MAT)),(A/2-KD-1))                   # среднее 
+KDR_MAX = MIN((A/2-KD-1)*(1-TAIL_D)+(ROUND(2*KD/3))*(TAIL_D),(A/2-KD-1))                      # максимальное
+
+# --- скругления хвоста ---
+# SKRUGDK — единый радиус для всех углов хвоста.
+# 0 — не скруглять совсем. Сверху ограничен наименьшим из двух:
+#   ROUND(KD/2)                                  — половина глубины клапана
+#   ROUND((ROUND((X62-X60)/3)-2*(0.25+0.25*MAT))/2) — половина трети свободной ширины
+SKRBIG  = ROUND((ROUND((X62-X60)/3)-2*(0.25+0.25*MAT))/2)
+SKRMAX  = MAX(0, MIN(ROUND(KD/3)-2, (1-TAIL_D)*(ROUND(KD/2)-3) + TAIL_D*SKRBIG))
+SKRUG_V = MIN(MAX(SKRUGDK,0), SKRMAX)
+SKR0    = 0
+
+# усиленное: A*0.75 или B*0.75, округление до 0,5,
+# берётся то, что попадает в A/2 < HD < B+E-t
+HD_STR_A = ROUND(A*0.75, 0.5)
+HD_STR_B = ROUND(B*0.75, 0.5)
+OK_A = MIN(1, MAX(0, (HD_STR_A-A/2)*1000)) * MIN(1, MAX(0, (B+E-t-HD_STR_A)*1000))
+OK_B = MIN(1, MAX(0, (HD_STR_B-A/2)*1000)) * MIN(1, MAX(0, (B+E-t-HD_STR_B)*1000))
+HD_STR = HD_STR_A*OK_A + HD_STR_B*OK_B*(1-OK_A) + HD_OPT*(1-OK_B)*(1-OK_A)
+
+# --- оси X: панели B-t | A | B | A | D ---
+X0 = 0
+X1 = B-t
+X2 = X1+A
+X3 = X2+B
+X4 = X3+A
+X5 = X4+D
+
+X6 = X4+6                            # ёжик, 6 мм от биговки
+TAIL   = 1                           # хвост есть всегда
+X_TAIL = X5+KD*(1+TAIL_D)          # внешний край хвоста
+
+X7 = X1+t                            # допуск крышки
+X8 = X2-t                            # допуск крышки
+X9 = X3+t                            # допуск крышки
+X10 = X4-t                            # допуск крышки
+
+X11 = X1-t                            # допуск клапана
+X12 = X2+t                            # допуск клапана
+X13 = X3-t                            # допуск клапана
+
+X21 = 3
+X22 = 5
+X23 = X1-3
+X24 = X1-5
+X25 = X2+3
+X26 = X2+5
+X27 = X3-3
+X28 = X3-5
+X29 = X1+Z+1.5
+
+X60=X1+KD
+X62=X2-KD
+X63=X60+ROUND((X62-X60)/3)
+X64=X62-ROUND((X62-X60)/3)
+X65=X60+ROUND((X62-X60)/2)
+
+X573=X3+KD
+X574=X4-KD
+X575=X573+ROUND((X62-X60)/3)
+X576=X574-ROUND((X62-X60)/3)
+X577=X573+ROUND((X62-X60)/2)
+X860=X1-ROUND(B/2)-(0.25+0.25*MAT)
+X861=X2+ROUND(B/2)+(0.25+0.25*MAT)
+
+# границы линий хвоста с учётом допуска — чтобы не повторять формулу
+XS1 = X573+(0.25+0.25*MAT)
+XS2 = X575-(0.25+0.25*MAT)
+XS3 = X576+(0.25+0.25*MAT)
+XS4 = X574-(0.25+0.25*MAT)
+
+# --- концы биговок внизу: пересечение с резом (L227 / L228 / L224) на линии Y=0 ---
+# касательная к R1/R2/R3 -> отрезок реза P-T -> x при y=0
+TP1X = TANX(X1, 0, 1+(0.5*MAT), X860, Y860, -1)
+TP1Y = TANY(X1, 0, 1+(0.5*MAT), X860, Y860, -1)
+XB1  = X860+(TP1X-X860)*(0-Y860)/(TP1Y-Y860)
+TP2X = TANX(X2, 0, 1+(0.5*MAT), X861, Y860, 1)
+TP2Y = TANY(X2, 0, 1+(0.5*MAT), X861, Y860, 1)
+XB2  = X861+(TP2X-X861)*(0-Y860)/(TP2Y-Y860)
+PX3  = X573+(0.25+0.25*MAT)
+TP3X = TANX(X3, 0, 1+(0.5*MAT), PX3, Y11, 1)
+TP3Y = TANY(X3, 0, 1+(0.5*MAT), PX3, Y11, 1)
+XB3  = PX3+(TP3X-PX3)*(0-Y11)/(TP3Y-Y11)
+
+# --- оси Y ---
+YB = 0                              # нижняя кромка: ниже Y0 ничего не остаётся
+Y0 = 0                               # ось симметрии
+Y1 = H                             # линия верха
+Y2 = Y1+t                              # верхняя биговка крышки
+Y3 = Y1+B                              # верх крышки
+Y4 = Y3-t                              # нижняя биговка крышки
+Y5 = Y4+E
+Y6 = Y1+HD_VF                      # подрезано пределом A-3
+
+Y11=Y0-ROUND(B/2)
+Y12=Y0-ROUND(B*0.75)
+Y860=Y0-KD-(0.25+0.25*MAT)
+Y840=Y860-KDR
+
+[ЛИНИИ]
+# --- ёжик на клапане склейки ---
+L0  | ежик| X6 | 6 | X6 | Y1-6
+# --- замки клапанов ---
+L1  | рез| X0 | Y1 | X0 | Y1+Z
+L2  | рез| X13 | Y1 | X13 | Y1+Z
+L3  | рез| X4 | Y0 | X5 | 5
+L6  | рез| X13 | Y1 | X4 | Y1
+L37 | рез| X0 | Y1+Z | X0+ZF*COS(45) | Y1+Z+ZF*SIN(45)
+L38 | рез| X0+ZF*COS(45) | Y1+Z+ZF*SIN(45) | X0+KLR | Y6
+L39 | рез| X13 | Y1+Z | X13-ZF*COS(45) | Y1+Z+ZF*SIN(45)
+L40 | рез| X13-ZF*COS(45) | Y1+Z+ZF*SIN(45) | X13-KLR | Y6
+# --- Клапан склейки ---
+L7  | рез| X4 | Y1 | X5 | Y1-5
+L8  | рез| X5 | Y1-5 | X5 | 5
+# --- Верхняя крышка ---
+L10  | рез| X1 | Y2 | X1 | Y3
+L11  | рез| X2 | Y2 | X2 | Y3
+L12  | рез| X1 | Y3 | X1+(Z+3) | Y3
+L13  | рез| X2 | Y3 | X2-(Z+3) | Y3
+L14  | рез| X1+(Z+3) | Y3 | X1+(Z+3) | Y3-3
+L15  | рез| X2-(Z+3) | Y3 | X2-(Z+3) | Y3-3
+# --- Нижняя крышка ---
+L22 | рез | X26 | Y6 | X13-KLR | Y6
+L23 | рез | X24 | Y6 | X0+KLR | Y6
+L31 | рез | X0 | Y1 | X0 | YB
+L32 | биговка | X1 | Y2 | X1 | YB+(1+(0.5*MAT))
+L33 | биговка | X2 | YB+(1+(0.5*MAT)) | X2 | Y2
+L34 | биговка | X4 | Y1 | X4 | YB
+L36 | биговка | X1 | Y2 | X2 | Y2
+L45 | биговка | X1+Z+3 | Y4 | X2-Z-3 | Y4
+L47 | биговка | X3 | Y1 | X3 | YB+(1+(0.5*MAT))
+L50 | рез | CXR-DXR | Y5 | X8-(ROUND((X29*X29+(Y5-Y3)*(Y5-Y3)-X7*X7)/(2*(X29-X7))-X7))+DXR | Y5
+
+# --- соединение для картона ---
+# --- 1 ---
+L100 | рез | X23 | Y1+3 | TANX(X1-1, Y2, 1, X23, Y1+3, 1) | TANY(X1-1, Y2, 1, X23, Y1+3, 1) | MAT=0
+L101 | рез | X24 | Y6 | X23 | Y1+3| MAT=0
+L102 | биговка | X0 | Y1 | X1-1 - SQRT(1*1 - (Y1-Y2)*(Y1-Y2)) | Y1| MAT=0
+# --- 2 ---
+L103 | рез | X25 | Y1+3 | TANX(X2+1, Y2, 1, X25, Y1+3, -1) | TANY(X2+1, Y2, 1, X25, Y1+3, -1)| MAT=0
+L104 | рез | X25 | Y1+3 | X26 | Y6| MAT=0
+L105 | биговка | X13 | Y1 | X2+1 + SQRT(1*1 - (Y1-Y2)*(Y1-Y2)) | Y1| MAT=0
+# --- 3 ---
+# --- 4 ---
+# --- соединение для гофры---
+# --- 1 ---
+L201 | рез | X24 | Y6 | TANX(X1-1.5, Y2, 1.5, X23, Y2+3, 1) | TANY(X1-1.5, Y2, 1.5, X23, Y2+3, 1) | MAT=1
+L202 | биговка | X0 | Y1 | X1-1.5 - SQRT(1.5*1.5 - (Y1-Y2)*(Y1-Y2)) | Y1| MAT=1
+# --- 2 ---
+L203 | рез | X26 | Y6 | TANX(X2+1.5, Y2, 1.5, X25, Y2+3, -1) | TANY(X2+1.5, Y2, 1.5, X25, Y2+3, -1) | MAT=1
+L204 | биговка | X13 | Y1 | X2+1.5 - SQRT(1.5*1.5 - (Y1-Y2)*(Y1-Y2)) | Y1| MAT=1
+# --- 3 ---
+# --- 4 ---
+
+# --- хвост ---
+# концы линий укорочены на SKRUG_V — тангенсная точка скругления;
+# при SKRUG_V=0 концы возвращаются ровно в угол
+L205 | рез | XS1 | Y11 | XS1 | Y12+SKRUG_V
+L206 | рез | XS1+SKRUG_V | Y12 | XS2-SKRUG_V*TAIL_D | Y12
+L207 | рез | X575 | Y12 | X576 | Y12 | 1-TAIL_D
+L208 | рез | XS3+SKRUG_V*TAIL_D | Y12 | XS4-SKRUG_V | Y12
+L209 | рез | XS4 | Y12+SKRUG_V | XS4 | Y11
+L210 | рез | XS2 | Y11 | XS2 | Y12+SKRUG_V | TAIL_D
+L211 | рез | XS3 | Y11 | XS3 | Y12+SKRUG_V | TAIL_D
+L212 | рез | X1+(1+(0.5*MAT)) | Y12 | X60-SKRUG_V | Y12
+L213 | рез | X60 | Y12+SKRUG_V | X60 | Y11
+L214 | рез | X60 | Y11 | X63 | Y11
+L215 | рез | X63 | Y11 | X64 | Y11| 1-TAIL_D
+L216 | рез | X64 | Y11 | X62 | Y11
+L217 | рез | X62 | Y11 | X62 | Y12+SKRUG_V
+L218 | рез | X62+SKRUG_V | Y12 | X2-(1+(0.5*MAT)) | Y12
+L219 | рез | X63 | Y11 | X63 | Y12+SKRUG_V | TAIL_D
+L220 | рез | X63+SKRUG_V | Y12 | X64-SKRUG_V | Y12 | TAIL_D
+L221 | рез | X64 | Y12+SKRUG_V | X64 | Y11 | TAIL_D
+L222 | рез | X575 | Y11 | XS3 | Y11| TAIL_D
+L223 | рез | XS4 | Y11 | X4 | Y0
+L224 | рез | X573+(0.25+0.25*MAT) | Y11 | TANX(X3, 0, 1+(0.5*MAT), X573+(0.25+0.25*MAT), Y11, 1) | TANY(X3, 0, 1+(0.5*MAT), X573+(0.25+0.25*MAT), Y11, 1)
+L225 | рез | X2-(1+(0.5*MAT)) | Y12 | X2-(1+(0.5*MAT)) | Y0
+L226 | рез | X1+(1+(0.5*MAT)) | Y12 | X1+(1+(0.5*MAT)) | Y0
+L227 | рез | X860 | Y860 | TANX(X1, 0, 1+(0.5*MAT), X860, Y860, -1) | TANY(X1, 0, 1+(0.5*MAT), X860, Y860, -1)
+L228 | рез | X861 | Y860 | TANX(X2, 0, 1+(0.5*MAT), X861, Y860, 1) | TANY(X2, 0, 1+(0.5*MAT), X861, Y860, 1)
+L229 | рез | X860 | Y860 | X860 | Y840+SKRUG_V
+L230 | рез | X860-SKRUG_V | Y840 | X0 | Y840
+L231 | рез | X0 | Y840 | X0 | Y0
+L232 | рез | X861 | Y860 | X861 | Y840+SKRUG_V
+L233 | рез | X861+SKRUG_V | Y840 | X3-(1+(0.5*MAT)) | Y840
+L234 | рез | X3-(1+(0.5*MAT)) | Y840 | X3-(1+(0.5*MAT)) | Y0
+L235 | биговка | X0 | Y0 | XB1 | Y0
+L236 | биговка | X1+(1+(0.5*MAT)) | Y0 | X2-(1+(0.5*MAT)) | Y0
+L237 | биговка | XB2 | Y0 | X3-(1+(0.5*MAT)) | Y0
+L238 | биговка | XB3 | Y0 | X4 | Y0
+
+[ОКРУЖНОСТИ]
+R50 | рез | CXR | Y3 | ROUND((X29*X29+(Y5-Y3)*(Y5-Y3)-X7*X7)/(2*(X29-X7))-X7) | ATAN2(Y5-Y3, -DXR) | 180
+R51 | рез | X8-(ROUND((X29*X29+(Y5-Y3)*(Y5-Y3)-X7*X7)/(2*(X29-X7))-X7)) | Y3 | ROUND((X29*X29+(Y5-Y3)*(Y5-Y3)-X7*X7)/(2*(X29-X7))-X7) | 0 | 180-ATAN2(Y5-Y3, -DXR)
+# --- соединение для картона ---
+# --- 1 ---
+R100 | рез | X1-1 | Y2 | 1 | TANANG(X1-1, Y2, 1, X23, Y1+3, 1) | 360 | MAT=0 
+# --- 2 ---
+R101 | рез | X2+1 | Y2 | 1 | 180 | TANANG(X2+1, Y2, 1, X25, Y1+3, -1) | MAT=0
+# --- 3 ---
+# --- 4 ---
+# --- соединение для гофры---
+# --- 1 ---
+R201 | рез | X1-1.5 | Y2 | 1.5 | TANANG(X1-1.5, Y2, 1.5, X23, Y2+3, 1) | 360 | MAT=1 
+# --- 2 ---
+R202 | рез | X2+1.5 | Y2 | 1.5 | 180 | TANANG(X2+1.5, Y2, 1.5, X25, Y2+3, -1) | MAT=1 
+# --- 3 ---
+# --- 4 ---
+
+R1 | рез | X1 | Y0 | 1+(0.5*MAT) | 0 | TANANG(X1, 0, 1+(0.5*MAT), X860, Y860, -1)
+R2 | рез | X2 | Y0 | 1+(0.5*MAT) | TANANG(X2, 0, 1+(0.5*MAT), X861, Y860, 1) | 180
+R3 | рез | X3 | Y0 | 1+(0.5*MAT) | TANANG(X3, 0, 1+(0.5*MAT), X573+(0.25+0.25*MAT), Y11, 1) | 180
+
+# --- скругления хвоста (SKRUGDK) ---
+# центр = точка касания минус радиус; дуга всегда 90 градусов
+# R110: L229-L230   R111: L212-L213   R112: L219-L220   R113: L221-L220
+# R114: L217-L218   R115: L232-L233   R116: L205-L206   R117: L206-L210
+# R118: L211-L208   R119: L208-L209
+R110 | рез | X860-SKRUG_V | Y840+SKRUG_V | SKRUG_V | 270 | 0   | SKRUG_V
+R111 | рез | X60-SKRUG_V  | Y12+SKRUG_V  | SKRUG_V |270   | 360  | SKRUG_V
+R112 | рез | X63+SKRUG_V  | Y12+SKRUG_V  | SKRUG_V |180  | 270 | SKRUG_V*TAIL_D
+R113 | рез | X64-SKRUG_V  | Y12+SKRUG_V  | SKRUG_V | 270 | 0   | SKRUG_V*TAIL_D
+R114 | рез | X62+SKRUG_V  | Y12+SKRUG_V  | SKRUG_V | 180   | 270  | SKRUG_V
+R115 | рез | X861+SKRUG_V | Y840+SKRUG_V | SKRUG_V | 180 | 270| SKRUG_V
+R116 | рез | XS1+SKRUG_V  | Y12+SKRUG_V  | SKRUG_V | 180| 270| SKRUG_V
+R117 | рез | XS2-SKRUG_V  | Y12+SKRUG_V  | SKRUG_V | 270   | 0| SKRUG_V*TAIL_D
+R118 | рез | XS3+SKRUG_V  | Y12+SKRUG_V  | SKRUG_V | 180| 270| SKRUG_V*TAIL_D
+R119 | рез | XS4-SKRUG_V  | Y12+SKRUG_V  | SKRUG_V | 270 | 0   | SKRUG_V
+
+[ПРОВЕРКИ]
+# имя | условие (больше нуля = выполнено) | сообщение | стоп
+Ширина больше нуля     | A-1              | A должна быть больше 1 мм | 1
+Глубина больше допуска | B-t-1            | B должна быть больше допуска | 1
+# эти проверки смотрят на фактическую высоту, то есть уже подрезанную
+
+Верхний клапан не выше крышки | B+E-t-HD_VF | верхний пылевой клапан выше клапана крышки | 0
+
+# радиус скругления упирается в предел min(KD/2, треть свободной ширины) (мягкая проверка)
+Радиус скругления в пределе | SKRMAX-SKRUGDK+0.001 | SKRUGDK больше предела — радиус подрезан до SKRMAX | 0
+`;
+
+const PACKAGE_TYPES = [
+  { id: "packet", name: "Пакет",            model: MODEL_PACKET, ready: true  },
+  { id: "pachka", name: "Пачка-пачка",      model: MODEL_PACHKA, ready: true  },
+  { id: "pachkaLH", name: "Пачка-ЛХ",        model: MODEL_PACHKA_LH, ready: true  },
+  { id: "krysha", name: "Крышка-дно",         model: MODEL_KRYSHA, ready: true  },
+  { id: "penal",  name: "Пенал",                model: MODEL_PENAL,  ready: true  },
+];
+
+/* Виды ручки внутри пакета */
+const HANDLE_MODES = [
+  { value: 0, name: "Чистый вид", hint: "без ручки, только биговки" },
+  { value: 1, name: "Верёвочные", hint: "круглые отверстия Ø3 мм" },
+  { value: 2, name: "Ленты", hint: "пазы под ленту, скругление R3" },
+  { value: 3, name: "Ленты + заклёпки", hint: "пазы под ленту и заклёпки Ø3 мм" },
+];
+
+
+/* ============================================================
+   app.js — логика интерфейса.
+   Модель берётся из models.js, движок — из engine.js.
+   ============================================================ */
+
+const BUILD = "v22 · 05112026";   // подставляется сборщиком
+
+/* ---------- авторство ------------------------------------------------------
+   Made by Yauheni Padloukin @evgenpdl & Claude Haiku 5.5
+   ------------------------------------------------------------------------ */
+const CREDIT = "Made by Yauheni Padloukin @evgenpdl & Claude Haiku 5.5";
+const CREDIT_RU = "Сделано: Yauheni Padloukin @evgenpdl и Claude Haiku 5.5";
+
+try {
+  console.log("%c" + CREDIT, "font:600 13px sans-serif;color:#2563eb");
+  console.log("%c" + CREDIT_RU, "font:12px sans-serif;color:#4b5563");
+} catch (e) { /* консоль может быть недоступна — не мешаем работе */ }
+
+const $ = (id) => document.getElementById(id);
+
+const state = {
+  typeId: PACKAGE_TYPES[0].id,
+  kMode: "dno",             // крышка-дно: dno / krysha
+  pnKind: "penal",          // пенал / обечайка
+  pnBP: 1,                  // 1 — биговка, 0 — перфорация
+  pnLenta: 0,               // лента вкл/выкл
+  pnMid: 1,                 // 1 — лента по середине, 0 — по низу
+  pnShub: 0,                // дно у обечайки
+  pnHoles: 0,               // отверстия в дне (только при дне)
+  pnExtra: 0,               // доп. отверстие (только при дне)
+  pnRot: 8,                 // радиус отверстий, мм
+  parts: 1,
+  frame: false,
+  pachkaType: "A",        // A — как в модели, B — срез и отражение
+  lhMat: 0,               // Пачка-ЛХ: 0 картон / 1 гофра
+  lhTail: 0,              // Пачка-ЛХ: TAIL_D, авто-правило по A и KD
+  lhTailAutoSig: null,    // последняя пара A|KD, для которой правило уже сработало
+  mat: 0,                 // 0 картон / 1 гофра
+  lastSvg: null,
+  showDims: false,
+  showIds: false,
+  zoom: 1,
+  lastFileName: null,
+  result: null,
+};
+
+/* ------------------------------------------------------------ форма */
+
+function currentType() {
+  return PACKAGE_TYPES.find((t) => t.id === state.typeId) || PACKAGE_TYPES[0];
+}
+
+/* Выпадающий список типов упаковки. Новые типы добавляются в PACKAGE_TYPES,
+   здесь ничего править не нужно. */
+function buildTypeSelect() {
+  const sel = $("typeSelect");
+  sel.innerHTML = "";
+  for (const t of PACKAGE_TYPES) {
+    const o = document.createElement("option");
+    o.value = t.id;
+    o.textContent = t.ready ? t.name : t.name + " (скоро)";
+    o.disabled = !t.ready;
+    sel.appendChild(o);
+  }
+  sel.value = state.typeId;
+  sel.addEventListener("change", () => {
+    state.typeId = sel.value;
+    syncTypeFields();
+    calc();
+  });
+}
+
+/* Показать поля выбранного типа, спрятать остальные. */
+function syncTypeFields() {
+  $("packetFields").hidden = state.typeId !== "packet";
+  $("pachkaFields").hidden = state.typeId !== "pachka";
+  $("pachkaLHFields").hidden = state.typeId !== "pachkaLH";
+  $("kryshaFields").hidden = state.typeId !== "krysha";
+  $("penalFields").hidden = state.typeId !== "penal";
+  syncKryshaFields();
+  syncPenalFields();
+}
+
+/* ================= крышка-дно =================
+   Переключатель «Дно / Крышка» выставляет TYPD / TYPK.
+   Показываем только поля выбранного режима; остальные хранят значения. */
+function buildKbSwitch() {
+  const box = $("kbSwitch");
+  box.innerHTML = "";
+  for (const [v, label] of [["dno", "Дно"], ["krysha", "Крышка"]]) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.role = "radio";
+    b.textContent = label;
+    b.setAttribute("aria-checked", String(state.kMode === v));
+    b.addEventListener("click", () => {
+      state.kMode = v;
+      buildKbSwitch();
+      syncKryshaFields();
+      calc();
+    });
+    box.appendChild(b);
+  }
+}
+
+
+/* ================= пенал / обечайка =================
+   «Изделие» переключает блок модели (ПЕНАЛ / ОБЕЧАЙКА), «Тип» — биговку и перфорацию,
+   «Лента» — флаги LENTA / LENTA_MID. В обечайке ленты нет, зато есть «Дно». */
+function buildPenalSwitches() {
+  syncPenalFields();
+  const kind = $("pnKindSwitch");
+  kind.innerHTML = "";
+  for (const [v, label] of [["penal", "Пенал"], ["obech", "Обечайка"]]) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.role = "radio";
+    b.textContent = label;
+    b.setAttribute("aria-checked", String(state.pnKind === v));
+    b.addEventListener("click", () => { state.pnKind = v; buildPenalSwitches(); syncPenalFields(); calc(); });
+    kind.appendChild(b);
+  }
+
+  const bp = $("pnBP");
+  bp.innerHTML = "";
+  for (const [v, label] of [[1, "Биговка"], [0, "Перфорация"]]) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.role = "radio";
+    b.textContent = label;
+    b.setAttribute("aria-checked", String(state.pnBP === v));
+    b.addEventListener("click", () => { state.pnBP = v; buildPenalSwitches(); calc(); });
+    bp.appendChild(b);
+  }
+
+  const lent = $("pnLentaSwitch");
+  lent.innerHTML = "";
+  for (const [v, label] of [[0, "Без ленты"], [1, "Лента"]]) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.role = "radio";
+    b.textContent = label;
+    b.setAttribute("aria-checked", String(state.pnLenta === v));
+    b.addEventListener("click", () => { state.pnLenta = v; buildPenalSwitches(); syncPenalFields(); calc(); });
+    lent.appendChild(b);
+  }
+
+  /* Контейнер постоянный (pnLentaPos в разметке): раньше он создавался заново
+     на каждый клик и добавлялся рядом со старым — отсюда дубликаты кнопок. */
+  const pos = $("pnLentaPos");
+  if (pos) {
+    pos.innerHTML = "";
+    pos.hidden = state.pnLenta !== 1;
+    if (state.pnLenta === 1) {
+      for (const [v, label] of [[1, "Середина"], [0, "Низ"]]) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.role = "radio";
+        b.textContent = label;
+        b.setAttribute("aria-checked", String(state.pnMid === v));
+        b.addEventListener("click", () => { state.pnMid = v; buildPenalSwitches(); calc(); });
+        pos.appendChild(b);
+      }
+    }
+  }
+
+  const hol = $("pnHolesSwitch");
+  if (hol) {
+    hol.innerHTML = "";
+    for (const [v, label] of [[0, "Нет"], [1, "Есть"]]) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.role = "radio";
+      b.textContent = label;
+      b.setAttribute("aria-checked", String(state.pnHoles === v));
+      b.addEventListener("click", () => { state.pnHoles = v; buildPenalSwitches(); syncPenalFields(); calc(); });
+      hol.appendChild(b);
+    }
+  }
+
+  const ext = $("pnExtraSwitch");
+  if (ext) {
+    ext.innerHTML = "";
+    for (const [v, label] of [[0, "Нет"], [1, "Есть"]]) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.role = "radio";
+      b.textContent = label;
+      b.setAttribute("aria-checked", String(state.pnExtra === v));
+      b.addEventListener("click", () => { state.pnExtra = v; buildPenalSwitches(); calc(); });
+      ext.appendChild(b);
+    }
+  }
+
+  const brd = $("pnShubSwitch");
+  if (brd) {
+    brd.innerHTML = "";
+    for (const [v, label] of [[0, "Без дна"], [1, "С дном"]]) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.role = "radio";
+      b.textContent = label;
+      b.setAttribute("aria-checked", String(state.pnShub === v));
+      b.addEventListener("click", () => { state.pnShub = v; syncPenalFields(); buildPenalSwitches(); calc(); });
+      brd.appendChild(b);
+    }
+  }
+}
+
+function syncPenalFields() {
+  const penal = state.pnKind === "penal";
+  if (!penal) state.pnLenta = 0;   // в обечайке ленты нет
+  document.querySelectorAll("#penalFields [data-pn-penal]").forEach((el) => { el.hidden = !penal; });
+  document.querySelectorAll("#penalFields [data-pn-obech]").forEach((el) => { el.hidden = penal; });
+  const wl = $("pnWLentaField");
+  if (wl) wl.hidden = !(penal && state.pnLenta === 1);
+  const holesOn = !penal && state.pnShub === 1;
+  if (!holesOn) { state.pnHoles = 0; state.pnExtra = 0; }
+  const hf = $("pnHolesField");
+  if (hf) hf.hidden = !holesOn;
+  const rf = $("pnRotField");
+  if (rf) rf.hidden = !(holesOn && state.pnHoles === 1);
+  const extraOn = holesOn && state.pnHoles === 1;
+  if (!extraOn) state.pnExtra = 0;
+  const ef = $("pnExtraField");
+  if (ef) ef.hidden = !extraOn;
+}
+
+function syncKryshaFields() {
+  const dno = state.kMode === "dno";
+  document.querySelectorAll("#kryshaFields [data-dno]").forEach((el) => { el.hidden = !dno; });
+  document.querySelectorAll("#kryshaFields [data-krysha]").forEach((el) => { el.hidden = dno; });
+}
+
+/* Допустимые значения крышка-дно: недопустимое ставится в ближайшее допустимое,
+   построение не блокируется. Правила — те же, что в testmodel. */
+function applyKryshaLimits() {
+  const num = (id) => {
+    const raw = String($(id).value).replace(",", ".").trim();
+    const v = Number(raw);
+    return raw === "" || !Number.isFinite(v) ? null : v;
+  };
+  const put = (id, v) => { if (num(id) !== v) $(id).value = fmt2(v); };
+  const dno = state.kMode === "dno";
+
+  const A = num("kA");
+  let B = num("kB");
+  if (A !== null && B !== null && B >= A) { put("kB", A - 1); B = A - 1; }
+
+  const HD = num("kHD"), HK = num("kHK");
+  if (dno && HD !== null && B !== null && HD >= B) put("kHD", B - 1);
+  if (!dno && HK !== null && B !== null && HK >= B + 4) put("kHK", B + 3);
+
+  for (const id of ["kED", "kEK"]) {
+    const v = num(id);
+    if (v !== null && v <= 10) put(id, 11);
+  }
+  for (const id of ["kRD", "kRK"]) {
+    const v = num(id);
+    if (v !== null) {
+      const r = Math.max(1, Math.floor(v + 0.5));   // радиус целый
+      if (r !== v) put(id, r);
+    }
+  }
+}
+
+/* Ограничения пенала: те же, что в [ПРОВЕРКИ] модели, но не блокируют построение,
+   а подтягивают значение к ближайшему допустимому. */
+function applyPenalLimits() {
+  const num = (id) => {
+    const raw = String($(id).value).replace(",", ".").trim();
+    const v = Number(raw);
+    return raw === "" || !Number.isFinite(v) ? null : v;
+  };
+  const put = (id, v) => { if (num(id) !== v) $(id).value = fmt2(v); };
+  const min = { pnA: 30, pnB: 20, pnH: 12, pnE: 8, pnRot: 8 };
+  for (const id of Object.keys(min)) {
+    const v = num(id);
+    if (v !== null && v < min[id]) put(id, min[id]);
+  }
+  const B = num("pnB"), H = num("pnH");
+  if (B !== null && H !== null && H >= B) put("pnH", B - 1);
+}
+
+/* ---------------------------------------------------------- Пачка-ЛХ */
+
+/* Авто-правило двойного хвоста: (A-2*KD)/3 >= KD.
+   Срабатывает только при смене A или KD, поэтому ручное переключение
+   кнопкой сохраняется до следующей смены A или KD. */
+function lhAutoTail() {
+  const A = Number(String($("lhA").value).replace(",", "."));
+  const KD = Number(String($("lhKD").value).replace(",", "."));
+  if (!Number.isFinite(A) || !Number.isFinite(KD) || KD <= 0) return false;
+  const sig = A + "|" + KD;
+  if (sig === state.lhTailAutoSig) return false;
+  state.lhTailAutoSig = sig;
+  const want = ((A - 2 * KD) / 3 >= KD - 1e-9) ? 1 : 0;
+  if (state.lhTail !== want) {
+    state.lhTail = want;
+    buildLhTailSwitch();
+    return true;
+  }
+  return false;
+}
+
+function buildLhTailSwitch() {
+  const box = $("lhTailSwitch");
+  if (!box) return;
+  box.innerHTML = "";
+  const items = [
+    [0, "Одинарный", "TAIL_D 0 — хвост одинарный"],
+    [1, "Двойной", "TAIL_D 1 — хвост двойной"],
+  ];
+  for (const [v, label, hint] of items) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.role = "radio";
+    b.textContent = label;
+    b.title = hint;
+    b.setAttribute("aria-checked", String(state.lhTail === v));
+    b.addEventListener("click", () => {
+      state.lhTail = v;
+      buildLhTailSwitch();
+      updateLhTailHint();
+      calc();
+    });
+    box.appendChild(b);
+  }
+  updateLhTailHint();
+}
+
+function updateLhTailHint() {
+  const el = $("lhTailHint");
+  if (!el) return;
+  el.textContent = state.lhTail
+    ? "двойной хвост: десять скруглений, радиус ограничен зазором средней панели"
+    : "одинарный хвост: шесть скруглений, радиус ограничен KD/2";
+}
+
+function buildLhMatSwitch() {
+  const box = $("lhMatSwitch");
+  if (!box) return;
+  box.innerHTML = "";
+  const items = [[0, "Картон"], [1, "Гофра"]];
+  for (const [v, label] of items) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.role = "radio";
+    b.textContent = label;
+    b.setAttribute("aria-checked", String(state.lhMat === v));
+    b.addEventListener("click", () => {
+      state.lhMat = v;
+      $("lhD").value = v ? 20 : 15;   // клапан склейки: 20 гофра / 15 картон
+      buildLhMatSwitch();
+      updateLhMatHint();
+      calc();
+    });
+    box.appendChild(b);
+  }
+  updateLhMatHint();
+}
+
+function updateLhMatHint() {
+  const el = $("lhMatHint");
+  if (!el) return;
+  el.textContent = state.lhMat
+    ? "гофра: допуск 1,5 мм, радиус дуг 1,5 мм, клапан склейки 20 мм"
+    : "картон: допуск 0,5 мм, радиус дуг 1 мм, клапан склейки 15 мм";
+}
+
+/* Кнопки-подсказки KD / KDR / HD_V / SKRUGDK. */
+function buildLhChips() {
+  const plan = [
+    ["lhKD", "lhKDChips", [["KD_B2", "B/2"], ["KD_B3", "B/3"]]],
+    ["lhKDR", "lhKDRChips", [["KDR_AVG", "Среднее"], ["KDR_MAX", "Максимум"]]],
+    ["lhHDV", "lhHDVChips", [["HD_AVG", "Среднее"], ["HD_MAX", "Максимальное"], ["HD_OPT", "Оптимальное"], ["HD_STR", "Усиленное"]]],
+    ["lhSKR", "lhSKRChips", [["SKR0", "Без скругления"], ["SKRMAX", "Максимум"]]],
+  ];
+  for (const [inputId, boxId, presets] of plan) {
+    const box = $(boxId);
+    if (!box) continue;
+    box.innerHTML = "";
+    for (const [expr, label] of presets) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "chip";
+      b.textContent = label;
+      b.title = `${expr} — подставить в поле`;
+      b.addEventListener("click", () => {
+        const vals = modelVars(MODEL_PACHKA_LH, readParams(), [expr]);
+        const v = vals[expr];
+        if (!Number.isFinite(v)) return;
+        $(inputId).value = fmt2(v);
+        calc();
+      });
+      box.appendChild(b);
+    }
+  }
+}
+
+/* Тип А / Тип Б для пачки. */
+function buildPachkaTypeSwitch() {
+  const box = $("pachkaTypeSwitch");
+  box.innerHTML = "";
+  const items = [
+    ["A", "Тип А", "как нарисовано в модели"],
+    ["B", "Тип Б", "срезать всё ниже Y=0 и отзеркалить верх"],
+  ];
+  for (const [v, label, hint] of items) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.role = "radio";
+    b.textContent = label;
+    b.title = hint;
+    b.setAttribute("aria-checked", String(state.pachkaType === v));
+    b.addEventListener("click", () => {
+      state.pachkaType = v;
+      buildPachkaTypeSwitch();
+      calc();
+    });
+    box.appendChild(b);
+  }
+}
+
+/* Материал: картон / гофра. */
+function buildMatSwitch() {
+  const box = $("matSwitch");
+  box.innerHTML = "";
+  const items = [[0, "Картон"], [1, "Гофра"]];
+  for (const [v, label] of items) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.role = "radio";
+    b.textContent = label;
+    b.setAttribute("aria-checked", String(state.mat === v));
+    b.addEventListener("click", () => {
+      state.mat = v;
+      $("pD").value = v ? 20 : 15;   // стандарт клапана склейки: 20 гофра / 15 картон
+      buildMatSwitch();
+      updateMatHint();
+      calc();
+    });
+    box.appendChild(b);
+  }
+  updateMatHint();
+}
+
+function updateMatHint() {
+  $("matHint").textContent = state.mat
+    ? "гофра: допуск 1,5 мм, клапан склейки 20 мм"
+    : "картон: допуск 0,5 мм, клапан склейки 15 мм";
+}
+
+/* Высота пылевого клапана вводится числом. Кнопки под полем — справочные:
+   при нажатии считают вариант по текущим размерам и подставляют в поле. */
+const HD_PRESETS = [
+  ["HD_AVG", "Среднее"],
+  ["HD_MAX", "Максимальное"],
+  ["HD_OPT", "Оптимальное"],
+  ["HD_STR", "Усиленное"],
+];
+
+function buildHdPresets() {
+  for (const [inputId, boxId] of [["pHDV", "pHDVChips"], ["pHDN", "pHDNChips"]]) {
+    const box = $(boxId);
+    box.innerHTML = "";
+    for (const [expr, label] of HD_PRESETS) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "chip";
+      b.textContent = label;
+      b.title = `${expr} — подставить в поле`;
+      b.addEventListener("click", () => {
+        const vals = modelVars(MODEL_PACHKA, readParams(), [expr]);
+        const v = vals[expr];
+        if (!Number.isFinite(v)) return;
+        $(inputId).value = fmt2(v);
+        calc();
+      });
+      box.appendChild(b);
+    }
+  }
+}
+
+function buildFrameSwitch() {
+  const box = $("frameSwitch");
+  box.innerHTML = "";
+  const items = [[false, "Без рамки"], [true, "С рамкой"]];
+  for (const [v, label] of items) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.role = "radio";
+    b.textContent = label;
+    b.setAttribute("aria-checked", String(state.frame === v));
+    b.addEventListener("click", () => { state.frame = v; buildFrameSwitch(); calc(); });
+    box.appendChild(b);
+  }
+}
+
+function buildPartsSwitch() {
+  const box = $("partsSwitch");
+  box.innerHTML = "";
+  const items = [[1, "из одной части"], [2, "из двух частей"]];
+  for (const [v, label] of items) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.role = "radio";
+    b.textContent = label;
+    b.setAttribute("aria-checked", String(state.parts === v));
+    b.addEventListener("click", () => { state.parts = v; buildPartsSwitch(); calc(); });
+    box.appendChild(b);
+  }
+}
+
+function buildModeSelect() {
+  const sel = $("mode");
+  sel.innerHTML = "";
+  for (const m of HANDLE_MODES) {
+    const o = document.createElement("option");
+    o.value = String(m.value);
+    o.textContent = m.name;
+    sel.appendChild(o);
+  }
+  sel.value = "2";
+  updateModeHint();
+  sel.addEventListener("change", () => { updateModeHint(); calc(); });
+}
+
+function updateModeHint() {
+  const v = Number($("mode").value);
+  const m = HANDLE_MODES.find((x) => x.value === v);
+  $("modeHint").textContent = m ? m.hint : "";
+  const needU = v === 2 || v === 3;
+  $("uField").hidden = !needU;
+  $("U").disabled = !needU;
+}
+
+/* ---------------------------------------------------------- расчёт */
+
+function readParams() {
+  const num = (id) => {
+    const v = Number(String($(id).value).replace(",", "."));
+    return Number.isFinite(v) ? v : NaN;
+  };
+  if (state.typeId === "penal") {
+    const penal = state.pnKind === "penal";
+    return {
+      A: num("pnA"), B: num("pnB"), H: num("pnH"), E: num("pnE"),
+      TYPBIGPERF: penal ? state.pnBP : 1,
+      SHUB: penal ? 0 : state.pnShub,
+      HOLES: penal ? 0 : state.pnHoles,
+      EXTRA_HOLE: penal ? 0 : state.pnExtra,
+      ROT: num("pnRot"),
+      LENTA: penal ? state.pnLenta : 0,
+      LENTA_MID: penal ? state.pnMid : 1,
+      WLENTA: num("pnWLenta") || 20,
+    };
+  }
+  if (state.typeId === "krysha") {
+    const dno = state.kMode === "dno";
+    return {
+      A: num("kA"), B: num("kB"), HD: num("kHD"), HK: num("kHK"),
+      ED: num("kED"), EK: num("kEK"), RD: num("kRD"), RK: num("kRK"),
+      TYPD: dno ? 1 : 0, TYPK: dno ? 0 : 1,
+    };
+  }
+  if (state.typeId === "pachkaLH") {
+    return {
+      A: num("lhA"),
+      D: num("lhD"),
+      B: num("lhB"),
+      E: num("lhE"),
+      H: num("lhH"),
+      KL: num("lhKL"),
+      Z: num("lhZ"),
+      ZF: num("lhZF"),
+      KD: num("lhKD"),
+      KDR: num("lhKDR"),
+      HD_V: num("lhHDV"),
+      SKRUGDK: num("lhSKR"),
+      TAIL_D: state.lhTail,
+      MAT: state.lhMat,
+    };
+  }
+  if (state.typeId === "pachka") {
+    return {
+      A: num("pA"),
+      B: num("pB"),
+      H: num("pH"),
+      E: num("pE"),
+      Z: num("pZ"),
+      Zp: num("pZp"),
+      KL: num("pKL"),
+      ZF: num("pZF"),
+      MAT: state.mat,
+      D: num("pD"),
+      HD_V: num("pHDV"),
+      HD_N: num("pHDN"),
+    };
+  }
+  return {
+    A: num("A"),
+    B: num("B"),
+    H: num("H"),
+    MODE: Number($("mode").value),
+    PARTS: state.parts,
+    FRAME: state.frame ? 1 : 0,
+    // U нужен всегда: он входит в формулу проверки даже при LENTA=0
+    U: num("U"),
+  };
+}
+
+/* Тип Б: срезать всё ниже Y=0 и отзеркалить верхнюю часть.
+   Правим текст модели на лету — сама модель остаётся нетронутой. */
+const MIRROR_LINE = /^\s*(MIRROR_(?:X|Y|CUT_X|CUT_Y))\s*=/i;
+
+/* Пенал / обечайка: модель содержит два блока (#@ПЕНАЛ ... #@/ПЕНАЛ и
+   #@ОБЕЧАЙКА ... #@/ОБЕЧАЙКА) и общую [СЕТКА]. Оставляем только нужный блок,
+   иначе обе части объявляют одни и те же оси. */
+function applyPenalBlock(src, kind) {
+  const want = kind === "obech" ? "ОБЕЧАЙКА" : "ПЕНАЛ";
+  const out = [];
+  let skip = false;
+  for (const row of String(src).split("\n")) {
+    const t = row.trim();
+    const m = t.match(/^#@(\/?)(.+)$/);
+    if (m) {
+      if (m[1]) skip = false;
+      else skip = m[2].trim() !== want;
+      continue;
+    }
+    if (!skip) out.push(row);
+  }
+  return out.join("\n");
+}
+
+function applyPachkaType(src, type) {
+  const out = [];
+  let sec = null;
+  let inserted = false;
+  for (const row of String(src).split("\n")) {
+    const t = row.trim();
+    if (t.startsWith("[") && t.endsWith("]")) sec = t.slice(1, -1).trim().toLowerCase();
+    const inGrid = sec === "сетка" || sec === "grid" || sec === "vars";
+    if (inGrid && MIRROR_LINE.test(t)) continue;      // старые оси убираем
+    out.push(row);
+    if (inGrid && type === "B" && !inserted) {
+      out.push("MIRROR_CUT_Y = 0");
+      out.push("MIRROR_Y = 0");
+      inserted = true;
+    }
+  }
+  return out.join("\n");
+}
+
+/* Значения HD_V / HD_N из модели — это имена (HD_AVG и т.п.).
+   Подставляем их как числа, посчитанные той же моделью. */
+/* Посчитать переменные модели по текущим параметрам — нужно для пресетов
+   высоты клапана. Считается «на пустом» Drawing: только сетка, без линий. */
+function modelVars(model, params, names) {
+  const { grid } = parseSrc(model);
+  const probe = Object.create(Drawing.prototype);
+  probe.gridSrc = new Map();
+  for (const [k, v] of Object.entries(grid)) probe.gridSrc.set(k.toUpperCase(), v);
+  probe.origNames = new Map(Object.keys(grid).map((k) => [k.toUpperCase(), k]));
+  probe.params = new Map(
+    Object.entries(params).map(([k, v]) => [k.toUpperCase(), Number.isFinite(v) ? v : 0])
+  );
+  probe._vc = new Map();
+  probe._vs = [];
+  probe._pts = new Map();
+  probe._src = new Map();
+
+  const out = {};
+  for (const n of names) {
+    try { out[n] = probe.var(n); }
+    catch (e) { out[n] = NaN; }
+  }
+  return out;
+}
+
+function calc() {
+  clampAll();
+  if (state.typeId === "pachkaLH") lhAutoTail();
+  if (state.typeId === "krysha") applyKryshaLimits();
+  if (state.typeId === "penal") applyPenalLimits();                       // значения ниже минимума подтягиваем к минимуму
+  const type = currentType();
+  const params = readParams();
+
+  hide("errCard");
+  hide("warnCard");
+  hide("metricsCard");
+
+  // Ноль — законное значение для перечислений и для KL / Zp (отступ и усиление
+  // замков бывают нулевыми). Остальные размеры должны быть больше нуля.
+  const ZERO_OK = new Set(["MODE", "PARTS", "FRAME", "MAT", "HD_V", "HD_N", "KL", "Zp", "TYPD", "TYPK", "TAIL_D", "SKRUGDK", "KDR",
+                         "SHUB", "LENTA", "LENTA_MID", "TYPBIGPERF", "HOLES", "EXTRA_HOLE"]);   // флаги пенала: ноль — законное значение
+  const bad = Object.entries(params)
+    .filter(([k, v]) => {
+      if (!Number.isFinite(v)) return true;
+      return ZERO_OK.has(k) ? v < 0 : v <= 0;
+    })
+    .map(([k]) => k);
+  if (bad.length) {
+    showError("Проверь значения: " + bad.join(", ") + " — должны быть больше нуля.");
+    return;
+  }
+
+  let parsed, d, report, src = type.model, useParams = params;
+  try {
+    if (state.typeId === "pachka") {
+      src = applyPachkaType(src, state.pachkaType);
+    }
+    if (state.typeId === "penal") {
+      src = applyPenalBlock(src, state.pnKind);
+    }
+    parsed = parseSrc(src);
+    report = lint(src, useParams);
+
+    // проверка со «стоп» запрещает построение: показываем причину и выходим
+    if (report.blocking && report.blocking.length) {
+      showError(report.blocking.join("\n\n"));
+      return;
+    }
+
+    d = new Drawing(parsed.grid, parsed.lines, parsed.circles, useParams, parsed.checks);
+  } catch (e) {
+    showError(e && e.message ? e.message : String(e));
+    return;
+  }
+
+  state.result = d;
+  renderPreview(d);
+  renderMetrics(d, useParams);
+  renderWarnings(report);
+  state.lastSvg = d.svg({ margin: 10, showGuides: false });
+  state.lastFileName = fileName(useParams);
+}
+
+function fileName(p) {
+  if (state.typeId === "krysha") {
+    return state.kMode === "dno"
+      ? `dno_${p.A}_${p.B}_${p.HD}.svg`
+      : `kryshka_${p.A}_${p.B}_${p.HK}.svg`;
+  }
+  if (state.typeId === "penal") {
+    if (state.pnKind === "obech") return `obech_${p.A}x${p.B}x${p.H}${p.SHUB ? "_shub" : ""}${p.HOLES ? `_rot${p.ROT}` : ""}${p.EXTRA_HOLE ? "_extra" : ""}.svg`;
+    const l = p.LENTA ? `_lenta${p.WLENTA}${p.LENTA_MID ? "_mid" : "_low"}` : "";
+    return `penal_${p.A}x${p.B}x${p.H}${l}.svg`;
+  }
+  if (state.typeId === "pachkaLH") {
+    const mat = p.MAT ? "gofra" : "karton";
+    const tail = p.TAIL_D ? "_2hv" : "_1hv";
+    return `pachka_lh_${p.A}x${p.B}x${p.H}_${mat}${tail}.svg`;
+  }
+  if (state.typeId === "pachka") {
+    const mat = p.MAT ? "gofra" : "karton";
+    const t = state.pachkaType === "B" ? "_B" : "_A";
+    return `pachka_${p.A}x${p.B}x${p.H}_${mat}${t}.svg`;
+  }
+  const modeName = ["clean", "rope", "tape", "rivet"][p.MODE] || "mode";
+  const u = (p.MODE === 2 || p.MODE === 3) ? `_U${p.U}` : "";
+  const pt = p.PARTS === 2 ? "_2ch" : "";
+  const fr = p.FRAME ? "_ramka" : "";
+  return `paket_${p.A}x${p.B}x${p.H}_${modeName}${u}${pt}${fr}.svg`;
+}
+
+/* ---------------------------------------------------------- отрисовка */
+
+function renderPreview(d) {
+  const m = state.showDims || state.showIds ? 30 : 10;
+  let svg = d.svg({ margin: m, showGuides: false });
+  let errs = [];
+  if (state.showDims) {
+    svg = svg.replace("</svg>", dimsMarkup(d, m) + "</svg>");
+    const key = dimKey();
+    if (key) {
+      const r = pairsMarkup(d, m, key);
+      svg = svg.replace("</svg>", r.svg + "</svg>");
+      errs = r.errs;
+    }
+  }
+  if (state.showIds) svg = svg.replace("</svg>", idsMarkup(d, m) + "</svg>");
+  $("preview").innerHTML = svg;
+  const note = $("dimNote");
+  note.hidden = !errs.length;
+  note.textContent = errs.length ? "Не измерено: " + errs.join("; ") : "";
+  applyZoom();
+  updateDimToggle();
+}
+
+function applyZoom() {
+  const el = $("preview").querySelector("svg");
+  if (el) el.style.width = (state.zoom * 100) + "%";
+  $("zoomLabel").textContent = Math.round(state.zoom * 100) + "%";
+}
+
+/* Тестовая разметка: номер линии возле каждой линии/дуги, для записи нумерации.
+   Только в превью, в экспорт SVG/DXF не попадает. */
+function idsMarkup(d, m) {
+  const [x0, , , y1] = d.bbox;
+  const tx = (x, y) => [x - x0 + m, y1 - y + m];
+  let s = '<g class="ids" fill="#dc2626" font-family="sans-serif" font-size="9" font-weight="700" stroke="#fff" stroke-width="2.2" paint-order="stroke">';
+  for (const sg of d.segments) {
+    const name = /^\d+$/.test(String(sg.id)) ? "L" + sg.id : String(sg.id);
+    let x, y;
+    if (sg.kind === "line") {
+      x = (sg.a[0] + sg.b[0]) / 2; y = (sg.a[1] + sg.b[1]) / 2;
+    } else {
+      const ang = ((sg.start + sg.span / 2) * Math.PI) / 180;
+      x = sg.c[0] + sg.r * Math.cos(ang); y = sg.c[1] + sg.r * Math.sin(ang);
+    }
+    const p = tx(x, y);
+    s += `<text x="${p[0].toFixed(2)}" y="${p[1].toFixed(2)}">${name}</text>`;
+  }
+  return s + "</g>";
+}
+
+/* Размеры только для просмотра: в превью их нет в экспорте SVG/DXF.
+   Габарит — снаружи листа, диаметр каждого круглого отверстия — над ним. */
+function dimsMarkup(d, m) {
+  const [x0, , , y1] = d.bbox;
+  const tx = (x, y) => [x - x0 + m, y1 - y + m];
+  const W = d.w, H = d.h;
+  const top = m - 12, left = m - 12;
+  const t = (x) => fmt1(x);
+  let s = '<g class="dims" fill="#1e293b" stroke="#1e293b" stroke-width="0.3" font-family="sans-serif">';
+  s += `<line x1="${m}" y1="${top}" x2="${m + W}" y2="${top}"/>`;
+  s += `<line x1="${m}" y1="${top - 2}" x2="${m}" y2="${m - 1}"/>`;
+  s += `<line x1="${m + W}" y1="${top - 2}" x2="${m + W}" y2="${m - 1}"/>`;
+  s += `<text x="${m + W / 2}" y="${top - 2}" font-size="8" text-anchor="middle" stroke="none">${t(W)} мм</text>`;
+  s += `<line x1="${left}" y1="${m}" x2="${left}" y2="${m + H}"/>`;
+  s += `<line x1="${left - 2}" y1="${m}" x2="${m - 1}" y2="${m}"/>`;
+  s += `<line x1="${left - 2}" y1="${m + H}" x2="${m - 1}" y2="${m + H}"/>`;
+  s += `<text transform="translate(${left - 2},${m + H / 2}) rotate(-90)" font-size="8" text-anchor="middle" stroke="none">${t(H)} мм</text>`;
+  for (const sg of d.segments) {
+    if (sg.kind !== "arc" || !sg.full) continue;
+    const c = tx(sg.c[0], sg.c[1]);
+    s += `<text x="${c[0]}" y="${c[1] - sg.r - 1.5}" font-size="6" text-anchor="middle" stroke="none">Ø${t(2 * sg.r)}</text>`;
+  }
+  return s + "</g>";
+}
+
+const DIM_PAIRS = {
+  packet: ["L5-L7", "L4-L1", "L7-L8", "L5-X0"],
+  pachkaA: ["L32-L33", "L33-L47", "L102-L111", "L34-L8"],
+  pachkaB: ["L34-L8", "L32-L33", "L33-L47", "L105-L105Y"],
+  krysha: ["L1-1#X", "L3-3#Y", "L17-L18"],
+  penal: ["L27-27#X", "L28-28#Y", "L25-L24", "L23-L24"],
+  obech: ["L91-L92", "L92-L93", "L87-L85", "L89-L95"],
+  shub: ["L91-L92", "L92-L93", "L87-L204", "L199-L204", "L89-L200"]
+};
+
+function dimKey() {
+  if (state.typeId === "packet") return "packet";
+  if (state.typeId === "pachka") return state.pachkaType === "B" ? "pachkaB" : "pachkaA";
+  if (state.typeId === "krysha") return "krysha";
+  if (state.typeId === "penal") return state.pnKind === "obech" ? (state.pnShub === 1 ? "shub" : "obech") : "penal";
+  return null;
+}
+
+function segGeom(d, id) {
+  const sg = d.segments.find((s) => String(s.id) === id);
+  if (!sg || sg.kind !== "line") return null;
+  if (Math.abs(sg.a[1] - sg.b[1]) < 1e-6) return { o: "h", v: sg.a[1], sg };
+  if (Math.abs(sg.a[0] - sg.b[0]) < 1e-6) return { o: "v", v: sg.a[0], sg };
+  return { o: "x", sg };
+}
+
+function pairsMarkup(d, m, key) {
+  const [x0, , , y1] = d.bbox;
+  const tx = (x, y) => [x - x0 + m, y1 - y + m];
+  const f = (p) => p.toFixed(2);
+  const errs = [];
+  const placed = [];
+  const GAP = 8, STEP = 6, MAX = 20;
+  const lineM = (x1, y1_, x2, y2_) => {
+    const a = tx(x1, y1_), b = tx(x2, y2_);
+    return `<line x1="${f(a[0])}" y1="${f(a[1])}" x2="${f(b[0])}" y2="${f(b[1])}"/>`;
+  };
+  const textM = (x, y, label, rot) => {
+    const p = tx(x, y);
+    const tr = rot ? ` transform="rotate(${rot} ${f(p[0])} ${f(p[1])})"` : "";
+    return `<text x="${f(p[0])}" y="${f(p[1])}" font-size="7" font-weight="700" text-anchor="middle" stroke="none"${tr}>${label}</text>`;
+  };
+  const textBox = (x, y, label, rot) => {
+    const L = label.length * 4.2;
+    if (!rot) return [x - L / 2, y - 0.5, x + L / 2, y + 6];
+    return rot < 0 ? [x - 6.5, y - L / 2, x + 0.5, y + L / 2] : [x - 0.5, y - L / 2, x + 6.5, y + L / 2];
+  };
+  const union = (a, b) => [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])];
+  const place = (makers) => {
+    for (const mk of makers) {
+      for (let k = 0; k < MAX; k++) {
+        const it = mk(GAP + k * STEP);
+        if (!placed.some((q) => it.box[0] < q[2] && it.box[2] > q[0] && it.box[1] < q[3] && it.box[3] > q[1])) {
+          placed.push(it.box);
+          return it.svg;
+        }
+      }
+    }
+    const it = makers[0](GAP + (MAX - 1) * STEP);
+    placed.push(it.box);
+    return it.svg;
+  };
+  const vDim = (anchors, ticks, label) => place([1, -1].map((dir) => (off) => {
+    const ext = (a) => (dir > 0 ? a.top : a.bot);
+    const base = dir > 0 ? Math.max(...anchors.map(ext)) : Math.min(...anchors.map(ext));
+    const yd = base + dir * off;
+    const xs = [...anchors.map((a) => a.x), ...ticks];
+    const x1 = Math.min(...xs), x2 = Math.max(...xs), cx = (x1 + x2) / 2;
+    const ty = dir > 0 ? yd + 1.5 : yd - 7.5;
+    let svg = lineM(x1, yd, x2, yd);
+    for (const a of anchors) svg += lineM(a.x, ext(a), a.x, yd + dir);
+    for (const t of ticks) svg += lineM(t, yd - 1, t, yd + 1);
+    svg += textM(cx, ty, label, 0);
+    const lo = Math.min(yd, ...anchors.map(ext)), hi = Math.max(yd, ...anchors.map(ext));
+    return { svg, box: union([x1, lo, x2, hi], textBox(cx, ty, label, 0)) };
+  }));
+  const hDim = (anchors, label) => place([-1, 1].map((dir) => (off) => {
+    const ext = (a) => (dir < 0 ? a.left : a.right);
+    const base = dir < 0 ? Math.min(...anchors.map(ext)) : Math.max(...anchors.map(ext));
+    const xd = base + dir * off;
+    const ys = anchors.map((a) => a.y), y1_ = Math.min(...ys), y2_ = Math.max(...ys), cy = (y1_ + y2_) / 2;
+    const tx0 = xd + dir * 2, rot = dir < 0 ? -90 : 90;
+    let svg = lineM(xd, y1_, xd, y2_);
+    for (const a of anchors) svg += lineM(ext(a), a.y, xd + dir, a.y);
+    svg += textM(tx0, cy, label, rot);
+    const xl = Math.min(xd, ...anchors.map(ext)), xh = Math.max(xd, ...anchors.map(ext));
+    return { svg, box: union([xl, y1_, xh, y2_], textBox(tx0, cy, label, rot)) };
+  }));
+  const mnx = (g) => Math.min(g.sg.a[0], g.sg.b[0]), mxx = (g) => Math.max(g.sg.a[0], g.sg.b[0]);
+  const mny = (g) => Math.min(g.sg.a[1], g.sg.b[1]), mxy = (g) => Math.max(g.sg.a[1], g.sg.b[1]);
+  let s = "";
+  for (const spec of DIM_PAIRS[key]) {
+    const parts = spec.split("-");
+    if (parts.length !== 2) { errs.push(spec + ": одиночный размер пока не реализован"); continue; }
+    const pa = parts[0].trim().replace(/^L/, ""), pb = parts[1].trim().replace(/^L/, "");
+    const A = segGeom(d, pa);
+    if (!A) { errs.push(spec + ": нет линии " + pa); continue; }
+    if (pb === "X0") {
+      if (A.o !== "v") { errs.push(spec + ": линия не вертикальная"); continue; }
+      const xa = A.v, xb = d.var("X0");
+      s += vDim([{ x: xa, top: mxy(A), bot: mny(A) }], [xb], Math.abs(xa - xb).toFixed(1) + " мм");
+      continue;
+    }
+    const B = segGeom(d, pb);
+    if (!B) { errs.push(spec + ": нет линии " + pb); continue; }
+    if (A.o === "h" && B.o === "h") {
+      const va = A.v, vb = B.v;
+      s += hDim([{ y: va, left: mnx(A), right: mxx(A) }, { y: vb, left: mnx(B), right: mxx(B) }], Math.abs(va - vb).toFixed(1) + " мм");
+    } else if (A.o === "v" && B.o === "v") {
+      const xa = A.v, xb = B.v;
+      s += vDim([{ x: xa, top: mxy(A), bot: mny(A) }, { x: xb, top: mxy(B), bot: mny(B) }], [], Math.abs(xa - xb).toFixed(1) + " мм");
+    } else {
+      errs.push(spec + ": линии не параллельны осям X или Y");
+    }
+  }
+  return { svg: '<g class="pairdims" fill="#1e293b" stroke="#1e293b" stroke-width="0.3" font-family="sans-serif">' + s + "</g>", errs, boxes: placed };
+}
+
+function updateDimToggle() {
+  const b = $("dimToggle");
+  b.disabled = !state.result;
+  b.textContent = state.showDims ? "Скрыть размеры" : "Показать размеры";
+  const t = $("idToggle");
+  t.disabled = !state.result;
+  t.textContent = state.showIds ? "Скрыть номера линий" : "Номера линий (тест)";
+}
+
+/* Длина реза раскладывается на две части:
+   пазы под ленту (линии L25..L32 и дуги R9..R16) и люверсы (полные окружности). */
+// Рамка вырубки в счёт реза не идёт: это не паз и не отверстие.
+const FRAME_IDS = new Set([33, 34, 35, 36]);
+
+function cutBreakdown(d) {
+  let slot = 0, holes = 0, holesLen = 0, frame = 0;
+  for (const s of d.segments) {
+    if (s.type !== "cut") continue;
+    if (FRAME_IDS.has(Number(s.id))) { frame += s.len; continue; }
+    if (s.kind === "arc" && s.full) { holes += 1; holesLen += s.len; continue; }
+    slot += s.len;                     // и линии паза, и его скругления
+  }
+  const cutAll = slot + holesLen;      // весь рез, без рамки
+  // Отверстия пробиваются через подгиб и тело: в развёртке их вдвое
+  // больше, чем люверсов в готовом пакете.
+  const luvers = Math.round(holes / 2);
+  return { slot, holes, holesLen, luvers, cutAll, frame };
+}
+
+const PLURAL = (n, one, few, many) => {
+  const m10 = n % 10, m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return one;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+  return many;
+};
+
+// отверстия строятся не во всех видах: тогда берём расчётное число
+const luversFallback = (p) => (p.PARTS === 2 ? 2 : 4);
+
+function luversText(n) {
+  return `${n} ${PLURAL(n, "люверс", "люверса", "люверсов")} D3`;
+}
+
+// Полная длина реза: пазы + отверстия + рамка.
+// Ровно эта величина входит в длину ножей, поэтому цифры сходятся.
+function fullCut(bd, luvers, apertureD) {
+  // в развёртке на каждый люверс два отверстия — через подгиб и тело
+  const holes = bd.holesLen > 0 ? bd.holesLen : luvers * 2 * Math.PI * apertureD;
+  return { total: bd.slot + holes + bd.frame, holes, slot: bd.slot, frame: bd.frame };
+}
+
+function cutCell(bd, mode, luvers, apertureD) {
+  const { slot, frame, holes } = fullCut(bd, luvers, apertureD);
+  const total = slot + holes + frame;
+  const lv = luversText(luvers);
+  const withFrame = frame > 0;
+
+  // 8 отверстий в развёртке сходятся в 4 после фальцовки по биговке —
+  // именно туда ставится люверс. Поэтому в подписи 4, а не 8.
+  const foldNote = "8 отверстий Ø3 сходятся в 4 при фальцовке";
+
+  // состав реза — чтобы цифра была проверяемой
+  const parts = [];
+  if (slot > 0) parts.push(`пазы ${fmt0(slot)}`);
+  if (holes > 0) parts.push(`отверстия ${fmt0(holes)}`);
+  if (frame > 0) parts.push(`рамка ${fmt0(frame)}`);
+  const note = parts.length ? parts.join(" + ") : "реза нет";
+
+  if (mode === 0 || mode === 1) {
+    return { v: fmt0(total), u: "мм", n: `${note}; ${lv}, ${foldNote}` };
+  }
+  if (mode === 3) return { v: fmt0(total), u: "мм", n: `${note}; ${lv}, ${foldNote}` };
+  return { v: fmt0(total), u: "мм", n: note };
+}
+
+/* Крышка-дно: показатели в фиксированном порядке.
+   Перфорация входит в общую длину ножей. */
+function renderMetricsKrysha(d) {
+  const creaseLen = d.total("crease");
+  const cutLen = d.total("cut");
+  const perfLen = d.total("perfo");
+  const knives = creaseLen + cutLen + perfLen;
+  const area = (d.w * d.h) / 1e6;
+
+  const cells = [
+    { k: "Размер в развороте", v: `${fmt1(d.w)} × ${fmt1(d.h)}`, u: "мм", hl: true, n: "ширина × высота листа" },
+    { k: "Длина биговок", v: fmt0(creaseLen), u: "мм", n: `${d.count("crease")} линий` },
+    { k: "Длина реза", v: fmt0(cutLen), u: "мм", n: `${d.count("cut")} линий` },
+    { k: "Длина перфорации", v: fmt0(perfLen), u: "мм", n: `${d.count("perfo")} линий` },
+    { k: "Общая длина ножей", v: fmt0(knives), u: "мм", hl: true, n: "биговка + рез + перфорация" },
+    { k: "Площадь заготовки", v: area.toFixed(3), u: "м²", n: "по габариту заготовки" },
+  ];
+
+  $("metrics").innerHTML = cells.map((c) => `
+    <div class="metric${c.hl ? " hl" : ""}">
+      <div class="k">${esc(c.k)}</div>
+      <div class="v"><span>${esc(c.v)}</span>${c.u ? `<small>${esc(c.u)}</small>` : ""}</div>
+      ${c.n ? `<div class="n">${esc(c.n)}</div>` : ""}
+    </div>`).join("");
+
+  show("metricsCard");
+}
+
+function renderMetricsPenal(d) {
+  const creaseLen = d.total("crease"), cutLen = d.total("cut");
+  const perfLen = d.total("perfo") + d.total("perf");
+  const knives = creaseLen + cutLen + perfLen;
+  const area = (d.w * d.h) / 1e6;
+  const cells = [
+    { k: "Размер в развороте", v: `${fmt1(d.w)} × ${fmt1(d.h)}`, u: "мм", hl: true, n: "ширина × высота листа" },
+    { k: "Длина биговок", v: fmt0(creaseLen), u: "мм", n: `${d.count("crease")} линий` },
+    { k: "Длина реза", v: fmt0(cutLen), u: "мм", n: `${d.count("cut")} линий` },
+  ];
+  if (perfLen > 0) cells.push({ k: "Длина перфорации", v: fmt0(perfLen), u: "мм", n: `${d.count("perfo") + d.count("perf")} линий` });
+  cells.push({ k: "Общая длина ножей", v: fmt0(knives), u: "мм", hl: true, n: "биговка + рез" });
+  cells.push({ k: "Площадь заготовки", v: area.toFixed(3), u: "м²", n: "по габариту заготовки" });
+  $("metrics").innerHTML = cells.map((c) => `
+    <div class="metric${c.hl ? " hl" : ""}">
+      <div class="k">${esc(c.k)}</div>
+      <div class="v"><span>${esc(c.v)}</span>${c.u ? `<small>${esc(c.u)}</small>` : ""}</div>
+      ${c.n ? `<div class="n">${esc(c.n)}</div>` : ""}
+    </div>`).join("");
+  show("metricsCard");
+}
+
+function renderMetrics(d, p) {
+  if (state.typeId === "krysha") return renderMetricsKrysha(d);
+  if (state.typeId === "penal") return renderMetricsPenal(d);
+  // Пачка-ЛХ и Пачка-пачка считаются одинаково (биговки, резы, площадь)
+  const creaseLen = d.total("crease");
+  const creaseCount = d.count("crease");
+
+  const bd = cutBreakdown(d);
+
+  // Площадь — по габариту заготовки. Рамка идёт по контуру биговок,
+  // то есть внутри габарита, и на площадь не влияет.
+  const area = (d.w * d.h) / 1e6;
+  const luvers = bd.luvers > 0 ? bd.luvers : luversFallback(p);
+  const APERTURE = 3;                        // Ø отверстия под люверс
+  const cut = cutCell(bd, p.MODE, luvers, APERTURE);
+  const cutTotal = fullCut(bd, luvers, APERTURE).total;
+
+  // Общая длина ножей: биговка + весь рез.
+  // Люверс пробивается через подгиб и тело, поэтому в штанц-форме
+  // на каждый люверс приходится два отверстия. В чистом виде
+  // отверстия не строятся — считаем их по той же схеме.
+  // Рамка входит в длину ножей: для штанц-формы это тоже рез.
+  const knives = creaseLen + cutTotal;      // биговка + весь рез
+
+  const cells = [
+    { k: "Габарит в развороте", v: `${fmt1(d.w)} × ${fmt1(d.h)}`, u: "мм", hl: true,
+      n: "ширина × высота листа" },
+    { k: "Общая длина биговки", v: fmt0(creaseLen), u: "мм",
+      n: `${creaseCount} линий` },
+    { k: "Общая длина ножей", v: fmt0(knives), u: "мм", hl: true,
+      n: "биговка + рез" },
+    { k: "Длина реза", v: cut.v, u: cut.u, n: cut.n },
+  ];
+
+  // Шаг отверстий есть только у пакета — у пачки отверстий нет.
+  if (state.typeId === "packet") {
+    cells.push({ k: "Шаг отверстий", v: fmt0(d.var("dh")), u: "мм", n: "между ручками" });
+  }
+
+  cells.push({
+    k: "Площадь заготовки", v: area.toFixed(3), u: "м²",
+    n: "по габариту заготовки",
+  });
+
+  if (bd.frame > 0) {
+    cells.splice(4, 0, {
+      k: "Рамка вырубки", v: fmt0(bd.frame), u: "мм",
+      n: "контур по биговкам",
+    });
+  }
+
+  $("metrics").innerHTML = cells.map((c) => `
+    <div class="metric${c.hl ? " hl" : ""}">
+      <div class="k">${esc(c.k)}</div>
+      <div class="v"><span>${esc(c.v)}</span>${c.u ? `<small>${esc(c.u)}</small>` : ""}</div>
+      ${c.n ? `<div class="n">${esc(c.n)}</div>` : ""}
+    </div>`).join("");
+
+  show("metricsCard");
+}
+
+// Отсеиваем технические замечания линтера: пользователю они не нужны.
+const SILENT = [
+  "не заданы значения внешних",
+  "линий реза нет",
+];
+/* Технические замечания линтера о самой модели — пользователю не нужны:
+   неиспользуемые служебные переменные и совпадающие линии. */
+const SILENT_ANY = [
+  "нигде не используются",
+  "совпадают",
+];
+
+function renderWarnings(report) {
+  const list = report.warnings.filter(
+    (w) => !SILENT.some((s) => w.startsWith(s)) && !SILENT_ANY.some((s) => w.includes(s))
+  );
+  // пояснения к расчёту (например, подрезка дна) показываем в той же карточке
+  const notes = (report.infos || []).slice();
+  if (!list.length && !notes.length) { hide("warnCard"); return; }
+  $("warnlist").innerHTML =
+    list.map((w) => `<li>${esc(w)}</li>`).join("") +
+    notes.map((w) => `<li class="note">${esc(w)}</li>`).join("");
+  show("warnCard");
+}
+
+function showError(msg) {
+  $("errtext").textContent = msg;
+  show("errCard");
+  $("preview").innerHTML =
+    '<div class="empty"><p>Развёртка не построена</p></div>';
+  state.result = null;
+  state.lastSvg = null;
+  updateDimToggle();
+}
+
+/* -------------------------------------------------------------- файл */
+
+function downloadDxf() {
+  if (!state.result) return;
+  const text = state.result.dxf();
+  const blob = new Blob([text], { type: "application/dxf;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = (state.lastFileName || "paket.svg").replace(/\.svg$/, ".dxf");
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+function download() {
+  if (!state.lastSvg) return;
+  const blob = new Blob([state.lastSvg], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = state.lastFileName || "paket.svg";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+/* ------------------------------------------------------------- утилиты */
+
+const fmt1 = (x) => (Math.round(x * 10) / 10).toFixed(1);
+const fmt0 = (x) => String(Math.round(x));
+const fmt2 = (x) => (Math.abs(x - Math.round(x)) < 1e-9 ? String(Math.round(x))
+  : (Math.round(x * 100) / 100).toFixed(2));
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+function show(id) { $(id).hidden = false; }
+function hide(id) { $(id).hidden = true; }
+
+/* --------------------------------------------------------------- старт */
+
+$("buildBadge").textContent = BUILD;
+
+buildTypeSelect();
+buildPartsSwitch();
+buildKbSwitch();
+buildPenalSwitches();
+buildFrameSwitch();
+buildModeSelect();
+buildPachkaTypeSwitch();
+buildMatSwitch();
+buildHdPresets();
+buildLhMatSwitch();
+buildLhTailSwitch();
+buildLhChips();
+syncTypeFields();
+
+$("dlSvg").addEventListener("click", download);
+$("dimToggle").addEventListener("click", () => {
+  state.showDims = !state.showDims;
+  if (state.result) renderPreview(state.result);
+  updateDimToggle();
+});
+function setZoom(z) {
+  state.zoom = Math.min(4, Math.max(0.5, Math.round(z * 100) / 100));
+  applyZoom();
+}
+$("zoomIn").addEventListener("click", () => setZoom(state.zoom * 1.25));
+$("zoomOut").addEventListener("click", () => setZoom(state.zoom / 1.25));
+$("zoomReset").addEventListener("click", () => setZoom(1));
+$("idToggle").addEventListener("click", () => {
+  state.showIds = !state.showIds;
+  if (state.result) renderPreview(state.result);
+  updateDimToggle();
+});
+$("dlDxf").addEventListener("click", downloadDxf);
+
+/* Пересчёт сам, без кнопки. Небольшая задержка — чтобы не считать на каждый
+   символ и не мигать ошибкой, пока поле недопечатано. */
+const AUTO_DELAY = 768;
+let autoTimer = null;
+
+/* Минимумы ввода для пачки. Значение ниже минимума подтягивается к нему —
+   делаем это по уходу из поля, на Enter и перед каждым расчётом, иначе
+   нельзя было бы набрать «200»: первая цифра «2» уже меньше 16. */
+const LIMITS = {
+  pA: 16,    // длина
+  pB: 16,    // ширина
+  pH: 20,    // высота
+  pD: 12,    // клапан склейки
+  pE: 8,     // клапан крышки
+  pZ: 3,     // длина замка
+  pZF: 3,    // глубина замка
+  pKL: 0,    // отступ клапана — ноль допустим
+  lhA: 20, lhB: 20, lhH: 20, lhE: 1, lhD: 1,
+  lhKL: 0, lhZ: 0, lhZF: 0, lhKD: 1, lhKDR: 0, lhHDV: 1, lhSKR: 0,
+  pnA: 30,   // пенал: длина, минимум
+  pnB: 20,   // пенал: ширина, минимум
+  pnH: 12,   // пенал: высота дна, минимум
+  pnE: 8,    // пенал: борт, минимум
+  pnWLenta: 15, // пенал: ширина ленты
+  pZp: 0,    // усиление замков — ноль допустим
+  pHDV: 1,
+  pHDN: 1,
+};
+
+/* Подтянуть одно поле к минимуму. true — если значение изменилось. */
+function clampField(id) {
+  const el = $(id);
+  const min = LIMITS[id];
+  if (!el || min === undefined) return false;
+  const raw = String(el.value).replace(",", ".").trim();
+  if (raw === "") return false;
+  const v = Number(raw);
+  if (!Number.isFinite(v)) return false;
+  if (v >= min) return false;
+  el.value = fmt2(min);
+  return true;
+}
+
+function clampAll() {
+  let changed = false;
+  for (const id of Object.keys(LIMITS)) if (clampField(id)) changed = true;
+  return changed;
+}
+
+const ALL_INPUTS = ["kA", "kB", "kHD", "kHK", "kED", "kEK", "kRD", "kRK",
+                    "A", "B", "H", "U", "pA", "pB", "pH", "pE", "pD",
+                    "pZ", "pZp", "pKL", "pZF", "pHDV", "pHDN",
+                    "lhA", "lhD", "lhB", "lhE", "lhH", "lhKL", "lhZ", "lhZF",
+                    "lhKD", "lhKDR", "lhHDV", "lhSKR",
+                    "pnA", "pnB", "pnH", "pnE", "pnWLenta", "pnRot"];
+
+/* Пустое поле в видимом блоке — не считаем, оставляем прошлый чертёж. */
+function hasEmptyField() {
+  for (const id of ALL_INPUTS) {
+    const el = $(id);
+    if (!el || el.disabled) continue;
+    if (el.closest("[hidden]")) continue;
+    if (String(el.value).trim() === "") return true;
+  }
+  return false;
+}
+
+function scheduleCalc() {
+  clearTimeout(autoTimer);
+  autoTimer = setTimeout(() => {
+    if (hasEmptyField()) return;
+    calc();
+  }, AUTO_DELAY);
+}
+
+for (const id of ALL_INPUTS) {
+  $(id).addEventListener("input", scheduleCalc);
+  // уход из поля — подтянуть к минимуму и пересчитать
+  $(id).addEventListener("blur", () => { clampField(id); calc(); });
+  $(id).addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { clampField(id); calc(); }
+  });
+}
+
+calc();
+
+</script>
+</body>
+</html>
